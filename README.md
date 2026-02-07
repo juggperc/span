@@ -97,4 +97,5 @@ The application utilizes Svelte stores for local state management, ensuring a re
 
 ## License
 
-MIT
+**Strictly Proprietary.**
+This project is licensed under a custom Source-Available license. You may view the code for educational purposes, but you are strictly prohibited from self-hosting, downloading, distributing, modifying, or using any part of this code for profit or personal projects. See the [LICENSE](LICENSE) file for full details.
