@@ -1,92 +1,118 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
+import { getUserId } from '$lib/stores/user';
+import { getTodayLimits, upsertDailyLimits } from '$lib/appwrite-db';
 
 export const MAX_SWIPES = 20;
 export const MAX_LIKES_SENT = 5;
-export const MAX_LIKES_RECEIVED = 5;
 export const MAX_SEARCHES = 5;
 
-interface DailyLimits {
-    date: string;
+interface LimitState {
     swipes: number;
     likesSent: number;
     searches: number;
+    date: string;
+    docId: string | null; // Appwrite document ID
 }
 
-function todayString(): string {
+const STORAGE_KEY = 'span_limits';
+
+function todayStr(): string {
     return new Date().toDateString();
 }
 
-function freshLimits(): DailyLimits {
-    return {
-        date: todayString(),
-        swipes: 0,
-        likesSent: 0,
-        searches: 0
-    };
-}
-
 function createLimitsStore() {
-    const { subscribe, set, update } = writable<DailyLimits>(freshLimits());
+    const today = todayStr();
+    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
+    let initial: LimitState = { swipes: 0, likesSent: 0, searches: 0, date: today, docId: null };
 
-    if (browser) {
-        const stored = localStorage.getItem('span_limits');
-        if (stored) {
-            try {
-                const parsed: DailyLimits = JSON.parse(stored);
-                if (parsed.date === todayString()) {
-                    set(parsed);
-                } else {
-                    const fresh = freshLimits();
-                    set(fresh);
-                    localStorage.setItem('span_limits', JSON.stringify(fresh));
-                }
-            } catch {
-                const fresh = freshLimits();
-                set(fresh);
-                localStorage.setItem('span_limits', JSON.stringify(fresh));
+    if (stored) {
+        try {
+            const parsed: LimitState = JSON.parse(stored);
+            if (parsed.date === today) {
+                initial = parsed;
             }
+        } catch {
+            // corrupted
         }
     }
 
-    function ensureFreshDay(state: DailyLimits): DailyLimits {
-        if (state.date !== todayString()) {
-            const fresh = freshLimits();
-            if (browser) localStorage.setItem('span_limits', JSON.stringify(fresh));
-            return fresh;
-        }
+    const { subscribe, set, update } = writable<LimitState>(initial);
+
+    function persist(state: LimitState) {
+        if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         return state;
     }
 
-    function persist(state: DailyLimits): DailyLimits {
-        if (browser) localStorage.setItem('span_limits', JSON.stringify(state));
-        return state;
+    async function syncToAppwrite(state: LimitState) {
+        const userId = getUserId();
+        if (!userId) return;
+        try {
+            await upsertDailyLimits(userId, {
+                swipes: state.swipes,
+                likesSent: state.likesSent,
+                searches: state.searches,
+            });
+        } catch {
+            // offline — localStorage is the fallback
+        }
     }
 
     return {
         subscribe,
+
+        /**
+         * Initialize from Appwrite (call after auth).
+         */
+        init: async () => {
+            const userId = getUserId();
+            if (!userId) return;
+            try {
+                const doc = await getTodayLimits(userId);
+                if (doc) {
+                    const state: LimitState = {
+                        swipes: doc.swipes,
+                        likesSent: doc.likesSent,
+                        searches: doc.searches,
+                        date: todayStr(),
+                        docId: doc.$id,
+                    };
+                    set(persist(state));
+                }
+            } catch {
+                // use local
+            }
+        },
+
         incrementSwipe: () => update(s => {
-            const current = ensureFreshDay(s);
-            if (current.swipes >= MAX_SWIPES) return current;
-            return persist({ ...current, swipes: current.swipes + 1 });
+            const today = todayStr();
+            const state = s.date !== today
+                ? { swipes: 1, likesSent: 0, searches: 0, date: today, docId: null }
+                : { ...s, swipes: s.swipes + 1 };
+            syncToAppwrite(state);
+            return persist(state);
         }),
+
         incrementLike: () => update(s => {
-            const current = ensureFreshDay(s);
-            if (current.likesSent >= MAX_LIKES_SENT) return current;
-            return persist({ ...current, likesSent: current.likesSent + 1 });
+            const state = { ...s, likesSent: s.likesSent + 1 };
+            syncToAppwrite(state);
+            return persist(state);
         }),
+
         incrementSearch: () => update(s => {
-            const current = ensureFreshDay(s);
-            if (current.searches >= MAX_SEARCHES) return current;
-            return persist({ ...current, searches: current.searches + 1 });
+            const state = { ...s, searches: s.searches + 1 };
+            syncToAppwrite(state);
+            return persist(state);
         }),
+
         checkSwipe: (current: number) => current < MAX_SWIPES,
         checkLike: (current: number) => current < MAX_LIKES_SENT,
         checkSearch: (current: number) => current < MAX_SEARCHES,
+
         reset: () => {
-            const fresh = freshLimits();
+            const fresh: LimitState = { swipes: 0, likesSent: 0, searches: 0, date: todayStr(), docId: null };
             set(fresh);
-            if (browser) localStorage.setItem('span_limits', JSON.stringify(fresh));
+            if (browser) localStorage.removeItem(STORAGE_KEY);
         }
     };
 }

@@ -1,4 +1,8 @@
 import { writable } from 'svelte/store';
+import { browser } from '$app/environment';
+import { getUserId } from '$lib/stores/user';
+import { getProfiles } from '$lib/appwrite-db';
+import type { ProfileDoc } from '$lib/appwrite-db';
 
 export interface Profile {
     id: string;
@@ -15,8 +19,10 @@ export interface Profile {
     wantsKids: 'yes' | 'no' | 'maybe';
     relationshipType: 'casual' | 'serious' | 'friends' | 'open';
     monogamy: 'monogamous' | 'non-monogamous' | 'open';
+    anchorAnswer?: string;
 }
 
+// Mock profiles for demo/offline mode
 export const MOCK_PROFILES: Profile[] = [
     {
         id: '1',
@@ -32,7 +38,8 @@ export const MOCK_PROFILES: Profile[] = [
         usesWeed: false,
         wantsKids: 'maybe',
         relationshipType: 'serious',
-        monogamy: 'monogamous'
+        monogamy: 'monogamous',
+        anchorAnswer: 'I used to think vulnerability was weakness. Turns out it\'s the only thing that makes connection real.'
     },
     {
         id: '2',
@@ -48,7 +55,8 @@ export const MOCK_PROFILES: Profile[] = [
         usesWeed: true,
         wantsKids: 'yes',
         relationshipType: 'serious',
-        monogamy: 'monogamous'
+        monogamy: 'monogamous',
+        anchorAnswer: 'I changed my mind about hustle culture. Rest is productive. Stillness is where clarity lives.'
     },
     {
         id: '3',
@@ -80,7 +88,8 @@ export const MOCK_PROFILES: Profile[] = [
         usesWeed: false,
         wantsKids: 'yes',
         relationshipType: 'serious',
-        monogamy: 'monogamous'
+        monogamy: 'monogamous',
+        anchorAnswer: 'Discipline looks like punishment from the outside. From the inside, it feels like freedom.'
     },
     {
         id: '5',
@@ -112,7 +121,8 @@ export const MOCK_PROFILES: Profile[] = [
         usesWeed: false,
         wantsKids: 'maybe',
         relationshipType: 'open',
-        monogamy: 'open'
+        monogamy: 'open',
+        anchorAnswer: 'I stopped keeping score in relationships. The moment you start counting, you\'ve already lost.'
     },
     {
         id: '7',
@@ -128,7 +138,8 @@ export const MOCK_PROFILES: Profile[] = [
         usesWeed: false,
         wantsKids: 'maybe',
         relationshipType: 'serious',
-        monogamy: 'monogamous'
+        monogamy: 'monogamous',
+        anchorAnswer: 'The last time I chose patience over reaction was yesterday. I\'m still learning.'
     },
     {
         id: '8',
@@ -144,15 +155,57 @@ export const MOCK_PROFILES: Profile[] = [
         usesWeed: false,
         wantsKids: 'yes',
         relationshipType: 'serious',
-        monogamy: 'monogamous'
+        monogamy: 'monogamous',
+        anchorAnswer: 'Most people eat to live. I think the best conversations happen when someone cooks for you with intention.'
     }
 ];
+
+/**
+ * Convert Appwrite profile doc to local Profile type.
+ */
+function docToProfile(doc: ProfileDoc & { $id: string }): Profile {
+    return {
+        id: doc.$id,
+        name: doc.name,
+        age: doc.age,
+        location: doc.location,
+        bio: doc.bio,
+        tags: doc.tags,
+        imageUrl: doc.imageUrl,
+        distance: doc.distance,
+        myersBriggs: doc.myersBriggs,
+        smoker: doc.smoker,
+        usesWeed: doc.usesWeed,
+        wantsKids: doc.wantsKids,
+        relationshipType: doc.relationshipType,
+        monogamy: doc.monogamy,
+        anchorAnswer: doc.anchorAnswer,
+    };
+}
 
 function createMatchesStore() {
     const { subscribe, set, update } = writable<Profile[]>([...MOCK_PROFILES]);
 
     return {
         subscribe,
+
+        /**
+         * Load profiles from Appwrite. Falls back to mocks if no data.
+         */
+        loadFromAppwrite: async (excludeUserId: string) => {
+            try {
+                const docs = await getProfiles(excludeUserId);
+                if (docs.length > 0) {
+                    set(docs.map(docToProfile));
+                } else {
+                    // No profiles in DB yet — use mocks for demo
+                    set([...MOCK_PROFILES]);
+                }
+            } catch {
+                set([...MOCK_PROFILES]);
+            }
+        },
+
         remove: (id: string) => update(profiles => profiles.filter(p => p.id !== id)),
         reset: () => set([...MOCK_PROFILES]),
         set
