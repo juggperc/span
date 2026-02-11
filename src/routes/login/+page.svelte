@@ -35,7 +35,7 @@
       await account.create(ID.unique(), email, password, name || undefined);
       await account.createEmailPasswordSession(email, password);
       await initUser();
-      goto("/profile");
+      goto("/onboarding");
     } catch (e: any) {
       error = e.message || "Registration failed";
     } finally {

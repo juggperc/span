@@ -7,7 +7,7 @@
   import { goto } from "$app/navigation";
 
   // Public routes that don't require auth
-  const PUBLIC_ROUTES = ["/login"];
+  const PUBLIC_ROUTES = ["/login", "/onboarding"];
 
   onMount(async () => {
     if (browser) {
