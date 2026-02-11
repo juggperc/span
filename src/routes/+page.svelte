@@ -266,13 +266,13 @@
 
   <!-- Header -->
   <div class="flex justify-between items-center mb-3 px-2">
-    <h1 class="text-2xl font-bold tracking-tighter text-white">
-      <span>span</span>
+    <div class="flex items-center gap-1.5">
+      <img src="/logo.svg" alt="span" class="h-7 w-auto" />
       <span
-        class="text-[10px] text-pink-400/40 font-normal ml-1"
+        class="text-[10px] text-pink-400/40 font-normal"
         style="animation: warm-glow 3s ease-in-out infinite;">♡</span
       >
-    </h1>
+    </div>
     <div class="flex items-center gap-3">
       <div class="flex gap-2 text-[11px] font-mono">
         <span class="text-neutral-500">{$limits.swipes}/{MAX_SWIPES}</span>

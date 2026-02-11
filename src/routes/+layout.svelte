@@ -32,7 +32,7 @@
     class="font-geist min-h-screen bg-black text-white flex items-center justify-center"
   >
     <div class="flex flex-col items-center gap-4 animate-fade-in">
-      <h1 class="text-2xl font-bold tracking-tighter text-white">span</h1>
+      <img src="/logo.svg" alt="span" class="h-8 w-auto" />
       <div class="h-1 w-16 bg-neutral-800 rounded-full overflow-hidden">
         <div class="h-full w-8 bg-white/30 rounded-full loading-bar"></div>
       </div>

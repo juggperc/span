@@ -53,11 +53,11 @@
   <!-- Branding -->
   <div class="text-center space-y-3 animate-fade-in">
     <div
-      class="h-16 w-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4"
+      class="h-16 w-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 overflow-hidden"
     >
-      <Sparkles size={28} class="text-white/70" />
+      <img src="/icon.svg" alt="span" class="h-16 w-16" />
     </div>
-    <h1 class="text-4xl font-bold tracking-tighter text-white">span</h1>
+    <img src="/logo.svg" alt="span" class="h-10 w-auto mx-auto" />
     <p class="text-neutral-500 text-sm">
       {isRegister
         ? "Create your account to start connecting."
