@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { X, Heart, MapPin, Search, Info } from "lucide-svelte";
+  import { X, Heart, MapPin, Search, Info, Lock } from "lucide-svelte";
   import Card from "$lib/components/ui/Card.svelte";
   import Tag from "$lib/components/ui/Tag.svelte";
   import Navbar from "$lib/components/layout/Navbar.svelte";
   import { matches, MOCK_PROFILES } from "$lib/stores/matches";
   import { limits, MAX_SWIPES, MAX_LIKES_SENT } from "$lib/stores/limits";
+  import { mutual } from "$lib/stores/mutual";
   import { rankProfiles } from "$lib/algorithm";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
@@ -104,6 +105,9 @@
     }
     limits.incrementSwipe();
     limits.incrementLike();
+    if (currentProfile) {
+      mutual.addLike(currentProfile);
+    }
     animateExit("right");
   }
 
@@ -322,47 +326,61 @@
                   >{currentProfile.myersBriggs}</span
                 >
               </div>
+            </div>
+
+            <!-- Locked lifestyle fields -->
+            <div
+              class="relative rounded-xl border border-neutral-800 bg-neutral-800/30 p-4 overflow-hidden"
+            >
               <div
-                class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+                class="absolute inset-0 backdrop-blur-[6px] bg-neutral-900/60 z-10 flex flex-col items-center justify-center gap-2"
               >
-                <span class="text-neutral-500">Smoker</span>
-                <span class="text-white font-medium"
-                  >{currentProfile.smoker ? "Yes" : "No"}</span
+                <div
+                  class="h-10 w-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center"
                 >
+                  <Lock size={16} class="text-neutral-400" />
+                </div>
+                <p class="text-[11px] text-neutral-400 font-medium">
+                  Match to reveal details
+                </p>
               </div>
               <div
-                class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+                class="grid grid-cols-2 gap-2 text-xs opacity-30 select-none"
+                aria-hidden="true"
               >
-                <span class="text-neutral-500">Weed</span>
-                <span class="text-white font-medium"
-                  >{currentProfile.usesWeed ? "Yes" : "No"}</span
+                <div
+                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
                 >
-              </div>
-              <div
-                class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-              >
-                <span class="text-neutral-500">Kids</span>
-                <span class="text-white font-medium capitalize"
-                  >{currentProfile.wantsKids}</span
+                  <span class="text-neutral-500">Smoker</span>
+                  <span class="text-white">---</span>
+                </div>
+                <div
+                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
                 >
-              </div>
-              <div
-                class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-              >
-                <span class="text-neutral-500">Looking for</span>
-                <span class="text-white font-medium capitalize"
-                  >{currentProfile.relationshipType}</span
+                  <span class="text-neutral-500">420</span>
+                  <span class="text-white">---</span>
+                </div>
+                <div
+                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
                 >
-              </div>
-              <div
-                class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-              >
-                <span class="text-neutral-500">Style</span>
-                <span class="text-white font-medium capitalize"
-                  >{currentProfile.monogamy}</span
+                  <span class="text-neutral-500">Kids</span>
+                  <span class="text-white">---</span>
+                </div>
+                <div
+                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
                 >
+                  <span class="text-neutral-500">Looking for</span>
+                  <span class="text-white">---</span>
+                </div>
+                <div
+                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+                >
+                  <span class="text-neutral-500">Style</span>
+                  <span class="text-white">---</span>
+                </div>
               </div>
             </div>
+
             <div class="flex flex-wrap gap-1.5 pt-1">
               {#each currentProfile.tags as tag}
                 <Tag>{tag}</Tag>
