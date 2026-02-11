@@ -98,7 +98,7 @@
 
   $: canProceed =
     step === 0
-      ? name.trim().length > 0 && age.trim().length > 0
+      ? String(name).trim().length > 0 && String(age).trim().length > 0
       : step === 1
         ? selectedTags.length >= 3
         : step === 2
