@@ -144,9 +144,11 @@
       window.location.href = "/";
     } catch (e: any) {
       console.error("Onboarding save failed:", e.message || e);
-      // Still navigate — profile can be edited later
-      if (browser) localStorage.setItem("span_onboarded", "true");
-      window.location.href = "/";
+      alert(
+        "Failed to save profile. Please check that the Appwrite 'profiles' collection exists. \n\nError: " +
+          (e.message || e),
+      );
+      // Do NOT redirect if save failed, otherwise we get infinite loop
     } finally {
       saving = false;
     }

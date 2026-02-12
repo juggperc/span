@@ -129,7 +129,7 @@ export async function upsertProfile(userId: string, data: Partial<ProfileDoc>): 
         }
     } catch (e) {
         console.error('Profile upsert failed:', e);
-        return null;
+        throw e; // Propagate error so UI knows save failed
     }
 }
 
