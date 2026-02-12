@@ -24,5 +24,8 @@ export const COLLECTIONS = {
     JOURNAL_ENTRIES: 'journal_entries',
 } as const;
 
+// Storage bucket for profile images
+export const BUCKET_ID = 'profile_images';
+
 // Re-export for convenience
 export { ID, Query };

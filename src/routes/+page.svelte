@@ -13,7 +13,8 @@
   import Card from "$lib/components/ui/Card.svelte";
   import Tag from "$lib/components/ui/Tag.svelte";
   import Navbar from "$lib/components/layout/Navbar.svelte";
-  import { matches, MOCK_PROFILES } from "$lib/stores/matches";
+  import Logo from "$lib/components/ui/Logo.svelte";
+  import { matches } from "$lib/stores/matches";
   import { limits, MAX_SWIPES, MAX_LIKES_SENT } from "$lib/stores/limits";
   import { mutual } from "$lib/stores/mutual";
   import { behavior } from "$lib/stores/behavior";
@@ -22,18 +23,23 @@
   import type { UserPreferences } from "$lib/algorithm";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
+  import { user } from "$lib/stores/user";
+  import { getUserProfile } from "$lib/appwrite-db";
+  import { goto } from "$app/navigation";
 
-  // User preferences (would come from profile in production)
-  const userPrefs: UserPreferences = {
-    tags: ["Coding", "Travel", "Coffee", "Design"],
-    age: 26,
-    maxDistance: 50,
-    myersBriggs: "ENTP",
+  // User preferences (defaults until loaded)
+  let userPrefs: UserPreferences = {
+    tags: [],
+    age: 25,
+    maxDistance: 100,
+    myersBriggs: "",
     relationshipType: "serious",
     smoker: false,
     usesWeed: false,
     wantsKids: "maybe",
     monogamy: "monogamous",
+    gender: "man",
+    lookingFor: ["woman"],
   };
 
   // Gesture state
@@ -80,9 +86,43 @@
   // Profile depth for current profile
   $: profileDepth = currentProfile ? getProfileDepth(currentProfile) : 0;
 
-  onMount(() => {
-    const ranked = rankProfiles([...MOCK_PROFILES], userPrefs, $behavior);
-    matches.set(ranked);
+  onMount(async () => {
+    if ($user) {
+      // 1. Load MY profile to get real preferences
+      try {
+        const myProfile = await getUserProfile($user.$id);
+        if (!myProfile) {
+          console.log("No profile found, redirecting to onboarding...");
+          window.location.href = "/onboarding";
+          return;
+        }
+
+        if (myProfile) {
+          userPrefs = {
+            tags: myProfile.tags,
+            age: myProfile.age,
+            maxDistance: 50, // TODO: Add to schema
+            myersBriggs: myProfile.myersBriggs,
+            relationshipType: myProfile.relationshipType,
+            smoker: myProfile.smoker,
+            usesWeed: myProfile.usesWeed,
+            wantsKids: myProfile.wantsKids,
+            monogamy: myProfile.monogamy,
+            gender: myProfile.gender,
+            lookingFor: myProfile.lookingFor,
+          };
+        }
+      } catch (e) {
+        console.error("Failed to load user profile", e);
+      }
+
+      // 2. Load candidates
+      await matches.loadFromAppwrite($user.$id);
+
+      // 3. Rank profiles using the loaded preferences
+      const ranked = rankProfiles([...$matches], userPrefs, $behavior);
+      matches.set(ranked);
+    }
     dwellStart = Date.now();
 
     // Load saved anchor answer
@@ -240,7 +280,7 @@
 </script>
 
 <div
-  class="h-full w-full relative flex flex-col p-4 select-none transition-colors duration-1000"
+  class="h-full w-full relative flex flex-col p-5 pt-6 select-none transition-colors duration-1000"
   style="background: linear-gradient(180deg, hsla({bgHue}, 30%, 8%, {bgOpacity}) 0%, transparent 60%);"
 >
   <!-- Floating hearts on like -->
@@ -265,13 +305,9 @@
   {/if}
 
   <!-- Header -->
-  <div class="flex justify-between items-center mb-3 px-2">
+  <div class="flex justify-between items-center mb-4 px-1">
     <div class="flex items-center gap-1.5">
-      <img src="/logo.svg" alt="span" class="h-7 w-auto" />
-      <span
-        class="text-[10px] text-pink-400/40 font-normal"
-        style="animation: warm-glow 3s ease-in-out infinite;">♡</span
-      >
+      <Logo size="sm" />
     </div>
     <div class="flex items-center gap-3">
       <div class="flex gap-2 text-[11px] font-mono">
@@ -324,7 +360,7 @@
 
   <!-- Card Stack -->
   <div
-    class="flex-1 relative w-full max-w-[350px] mx-auto mb-20"
+    class="flex-1 relative w-full max-w-[350px] mx-auto"
     style="perspective: 1000px;"
   >
     {#if !canSwipe}
@@ -507,182 +543,181 @@
           </div>
         {/if}
       </div>
-
-      <!-- Controls -->
-      <div
-        class="absolute bottom-4 left-0 right-0 flex justify-center items-center gap-5 z-20"
-      >
-        <button
-          class="h-14 w-14 rounded-full bg-neutral-900 border border-neutral-800 text-red-400 flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 hover:border-red-500/30 active:scale-90"
-          on:click={handlePass}
-          disabled={isExiting}
-        >
-          <X size={24} strokeWidth={2.5} />
-        </button>
-        <button
-          class="h-10 w-10 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 flex items-center justify-center shadow-md transition-all duration-200 hover:scale-105 active:scale-90"
-          on:click={toggleDetails}
-        >
-          <Info size={18} strokeWidth={2} />
-        </button>
-        <button
-          class="h-14 w-14 rounded-full bg-white text-black flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-emerald-500/10 active:scale-90 disabled:opacity-40 disabled:hover:scale-100"
-          on:click={handleLike}
-          disabled={!canLike || isExiting}
-        >
-          <Heart size={24} fill="currentColor" />
-        </button>
-      </div>
-
-      <!-- Details Drawer -->
-      {#if showDetails && currentProfile}
-        <div
-          class="absolute inset-x-0 bottom-20 z-30 mx-2 bg-neutral-900/95 backdrop-blur-xl border border-neutral-800 rounded-2xl p-5 shadow-2xl animate-slide-up"
-          transition:fade={{ duration: 150 }}
-        >
-          <div class="space-y-3 text-sm">
-            <h3 class="font-semibold text-neutral-200">
-              About {currentProfile.name}
-            </h3>
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div
-                class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-              >
-                <span class="text-neutral-500">MBTI</span>
-                <span class="text-white font-medium"
-                  >{currentProfile.myersBriggs}</span
-                >
-              </div>
-            </div>
-
-            <!-- Resonance Score -->
-            {#if resonance}
-              <div
-                class="rounded-xl border border-neutral-800 bg-neutral-800/20 p-3 space-y-2"
-              >
-                <div class="flex items-center gap-1.5">
-                  <Target size={12} class="text-neutral-500" />
-                  <span
-                    class="text-[10px] font-bold text-neutral-500 uppercase tracking-wider"
-                    >Resonance</span
-                  >
-                </div>
-                <div class="flex flex-wrap gap-1.5">
-                  <span
-                    class="text-[10px] px-2 py-0.5 rounded-full border {resonance.intentLabel ===
-                    'aligned'
-                      ? 'border-emerald-800 bg-emerald-950 text-emerald-400'
-                      : resonance.intentLabel === 'compatible'
-                        ? 'border-yellow-800 bg-yellow-950 text-yellow-400'
-                        : 'border-neutral-700 bg-neutral-800 text-neutral-500'}"
-                  >
-                    Intent: {resonance.intentLabel}
-                  </span>
-                  <span
-                    class="text-[10px] px-2 py-0.5 rounded-full border border-neutral-700 bg-neutral-800 text-neutral-400"
-                  >
-                    Values: {resonance.valuesPercent}%
-                  </span>
-                  {#if resonance.sharedTags.length > 0}
-                    <span
-                      class="text-[10px] px-2 py-0.5 rounded-full border border-neutral-700 bg-neutral-800 text-neutral-400"
-                    >
-                      {resonance.sharedTags.length} shared
-                      {resonance.sharedTags.length === 1
-                        ? "interest"
-                        : "interests"}
-                    </span>
-                  {/if}
-                  {#if resonance.mbtiCompat}
-                    <span
-                      class="text-[10px] px-2 py-0.5 rounded-full border border-purple-800 bg-purple-950 text-purple-400"
-                    >
-                      MBTI match
-                    </span>
-                  {/if}
-                </div>
-              </div>
-            {/if}
-
-            <!-- Locked lifestyle fields -->
-            <div
-              class="relative rounded-xl border border-neutral-800 bg-neutral-800/30 p-4 overflow-hidden"
-            >
-              <div
-                class="absolute inset-0 backdrop-blur-[6px] bg-neutral-900/60 z-10 flex flex-col items-center justify-center gap-2"
-              >
-                <div
-                  class="h-10 w-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center"
-                >
-                  <Lock size={16} class="text-neutral-400" />
-                </div>
-                <p class="text-[11px] text-neutral-400 font-medium">
-                  Match to reveal details
-                </p>
-              </div>
-              <div
-                class="grid grid-cols-2 gap-2 text-xs opacity-30 select-none"
-                aria-hidden="true"
-              >
-                <div
-                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-                >
-                  <span class="text-neutral-500">Smoker</span>
-                  <span class="text-white">---</span>
-                </div>
-                <div
-                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-                >
-                  <span class="text-neutral-500">420</span>
-                  <span class="text-white">---</span>
-                </div>
-                <div
-                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-                >
-                  <span class="text-neutral-500">Kids</span>
-                  <span class="text-white">---</span>
-                </div>
-                <div
-                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-                >
-                  <span class="text-neutral-500">Looking for</span>
-                  <span class="text-white">---</span>
-                </div>
-                <div
-                  class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
-                >
-                  <span class="text-neutral-500">Style</span>
-                  <span class="text-white">---</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex flex-wrap gap-1.5 pt-1">
-              {#each currentProfile.tags as tag}
-                <Tag>{tag}</Tag>
-              {/each}
-            </div>
-          </div>
-        </div>
-      {/if}
     {:else}
+      <!-- No profiles available -->
       <div
         class="absolute inset-0 flex items-center justify-center p-6 text-center animate-fade-in"
       >
         <div class="space-y-4">
           <div
-            class="h-20 w-20 bg-neutral-900 border border-neutral-800 rounded-full flex items-center justify-center mx-auto"
+            class="h-20 w-20 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto"
           >
             <Search size={32} class="text-neutral-600" />
           </div>
-          <h2 class="text-xl font-bold">No more profiles</h2>
+          <h2 class="text-xl font-bold">No profiles yet.</h2>
           <p class="text-neutral-400 text-sm leading-relaxed max-w-[260px]">
-            Expand your distance or interests to discover more people.
+            We're finding people for you. Check back soon.
           </p>
         </div>
       </div>
     {/if}
   </div>
+
+  <!-- Controls (outside card stack to prevent clipping) -->
+  {#if canSwipe && currentProfile}
+    <div class="flex justify-center items-center gap-5 py-3 mb-16">
+      <button
+        class="h-14 w-14 rounded-full bg-neutral-900 border border-neutral-800 text-red-400 flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 hover:border-red-500/30 active:scale-90"
+        on:click={handlePass}
+        disabled={isExiting}
+      >
+        <X size={24} strokeWidth={2.5} />
+      </button>
+      <button
+        class="h-10 w-10 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 flex items-center justify-center shadow-md transition-all duration-200 hover:scale-105 active:scale-90"
+        on:click={toggleDetails}
+      >
+        <Info size={18} strokeWidth={2} />
+      </button>
+      <button
+        class="h-14 w-14 rounded-full bg-white text-black flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-emerald-500/10 active:scale-90 disabled:opacity-40 disabled:hover:scale-100"
+        on:click={handleLike}
+        disabled={!canLike || isExiting}
+      >
+        <Heart size={24} fill="currentColor" />
+      </button>
+    </div>
+  {/if}
+
+  <!-- Details Drawer (outside card stack to prevent clipping) -->
+  {#if showDetails && currentProfile}
+    <div
+      class="fixed inset-x-0 bottom-24 z-30 mx-4 max-w-[350px] mx-auto bg-neutral-900/95 backdrop-blur-xl border border-neutral-800 rounded-2xl p-5 shadow-2xl animate-slide-up"
+      transition:fade={{ duration: 150 }}
+    >
+      <div class="space-y-3 text-sm">
+        <h3 class="font-semibold text-neutral-200">
+          About {currentProfile.name}
+        </h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div
+            class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+          >
+            <span class="text-neutral-500">MBTI</span>
+            <span class="text-white font-medium"
+              >{currentProfile.myersBriggs}</span
+            >
+          </div>
+        </div>
+
+        <!-- Resonance Score -->
+        {#if resonance}
+          <div
+            class="rounded-xl border border-neutral-800 bg-neutral-800/20 p-3 space-y-2"
+          >
+            <div class="flex items-center gap-1.5">
+              <Target size={12} class="text-neutral-500" />
+              <span
+                class="text-[10px] font-bold text-neutral-500 uppercase tracking-wider"
+                >Resonance</span
+              >
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <span
+                class="text-[10px] px-2 py-0.5 rounded-full border {resonance.intentLabel ===
+                'aligned'
+                  ? 'border-emerald-800 bg-emerald-950 text-emerald-400'
+                  : resonance.intentLabel === 'compatible'
+                    ? 'border-yellow-800 bg-yellow-950 text-yellow-400'
+                    : 'border-neutral-700 bg-neutral-800 text-neutral-500'}"
+              >
+                Intent: {resonance.intentLabel}
+              </span>
+              <span
+                class="text-[10px] px-2 py-0.5 rounded-full border border-neutral-700 bg-neutral-800 text-neutral-400"
+              >
+                Values: {resonance.valuesPercent}%
+              </span>
+              {#if resonance.sharedTags.length > 0}
+                <span
+                  class="text-[10px] px-2 py-0.5 rounded-full border border-neutral-700 bg-neutral-800 text-neutral-400"
+                >
+                  {resonance.sharedTags.length} shared
+                  {resonance.sharedTags.length === 1 ? "interest" : "interests"}
+                </span>
+              {/if}
+              {#if resonance.mbtiCompat}
+                <span
+                  class="text-[10px] px-2 py-0.5 rounded-full border border-purple-800 bg-purple-950 text-purple-400"
+                >
+                  MBTI match
+                </span>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Locked lifestyle fields -->
+        <div
+          class="relative rounded-xl border border-neutral-800 bg-neutral-800/30 p-4 overflow-hidden"
+        >
+          <div
+            class="absolute inset-0 backdrop-blur-[6px] bg-neutral-900/60 z-10 flex flex-col items-center justify-center gap-2"
+          >
+            <div
+              class="h-10 w-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center"
+            >
+              <Lock size={16} class="text-neutral-400" />
+            </div>
+            <p class="text-[11px] text-neutral-400 font-medium">
+              Match to reveal details
+            </p>
+          </div>
+          <div
+            class="grid grid-cols-2 gap-2 text-xs opacity-30 select-none"
+            aria-hidden="true"
+          >
+            <div
+              class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+            >
+              <span class="text-neutral-500">Smoker</span>
+              <span class="text-white">---</span>
+            </div>
+            <div
+              class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+            >
+              <span class="text-neutral-500">420</span>
+              <span class="text-white">---</span>
+            </div>
+            <div
+              class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+            >
+              <span class="text-neutral-500">Kids</span>
+              <span class="text-white">---</span>
+            </div>
+            <div
+              class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+            >
+              <span class="text-neutral-500">Looking for</span>
+              <span class="text-white">---</span>
+            </div>
+            <div
+              class="flex justify-between py-1.5 px-2 rounded-lg bg-neutral-800/50"
+            >
+              <span class="text-neutral-500">Style</span>
+              <span class="text-white">---</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-1.5 pt-1">
+          {#each currentProfile.tags as tag}
+            <Tag>{tag}</Tag>
+          {/each}
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <Navbar />
 </div>

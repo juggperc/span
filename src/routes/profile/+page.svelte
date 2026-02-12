@@ -3,16 +3,21 @@
   import Button from "$lib/components/ui/Button.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import Tag from "$lib/components/ui/Tag.svelte";
-  import { Settings, Edit2, Save, LogOut, X } from "lucide-svelte";
+  import { Settings, Edit2, Save, LogOut, X, Camera } from "lucide-svelte";
   import { user, logout } from "$lib/stores/user";
   import { anchor } from "$lib/stores/anchor";
-  import { getUserProfile, upsertProfile } from "$lib/appwrite-db";
+  import {
+    getUserProfile,
+    upsertProfile,
+    uploadProfileImage,
+  } from "$lib/appwrite-db";
   import type { ProfileDoc } from "$lib/appwrite-db";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
 
   let editing = false;
   let loading = true;
+  let savingProfile = false;
 
   // Profile state
   let name = "";
@@ -32,6 +37,11 @@
   let editBio = "";
   let editName = "";
   let newTag = "";
+
+  // Photo edit state
+  let newPhotoFile: File | null = null;
+  let newPhotoPreview: string = "";
+  let photoFileInput: HTMLInputElement;
 
   onMount(async () => {
     if ($user) {
@@ -54,8 +64,7 @@
         name = $user.name || "New User";
         bio = "";
         location = "";
-        imageUrl =
-          "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=800&auto=format&fit=crop&q=60";
+        imageUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
       }
     }
     loading = false;
@@ -64,14 +73,43 @@
   function startEditing() {
     editName = name;
     editBio = bio;
+    newPhotoFile = null;
+    newPhotoPreview = "";
     editing = true;
+  }
+
+  function handleProfilePhotoSelect(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) return;
+
+    newPhotoFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      newPhotoPreview = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
   async function saveProfile() {
     if (!$user) return;
+    savingProfile = true;
     name = editName;
     bio = editBio;
+
+    // Upload new photo if one was selected
+    if (newPhotoFile) {
+      try {
+        imageUrl = await uploadProfileImage(newPhotoFile);
+      } catch (e) {
+        console.error("Profile image upload failed:", e);
+      }
+    }
+
     editing = false;
+    newPhotoFile = null;
+    newPhotoPreview = "";
 
     await upsertProfile($user.$id, {
       name,
@@ -88,6 +126,7 @@
       monogamy,
       anchorAnswer: $anchor.answer || undefined,
     });
+    savingProfile = false;
   }
 
   function addTag() {
@@ -121,7 +160,7 @@
     <!-- Cover/Image Area -->
     <div class="h-[38%] w-full relative">
       <img
-        src={imageUrl}
+        src={newPhotoPreview || imageUrl}
         alt={name}
         class="w-full h-full object-cover mask-gradient"
       />
@@ -129,7 +168,33 @@
         class="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black"
       ></div>
 
-      <div class="absolute top-6 right-6 flex gap-2">
+      <!-- Hidden file input for photo change -->
+      <input
+        type="file"
+        accept="image/*"
+        class="hidden"
+        bind:this={photoFileInput}
+        on:change={handleProfilePhotoSelect}
+      />
+
+      <!-- Camera overlay in edit mode -->
+      {#if editing}
+        <button
+          class="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity duration-200 hover:bg-black/50 cursor-pointer z-[5]"
+          on:click={() => photoFileInput?.click()}
+        >
+          <div class="flex flex-col items-center gap-2">
+            <div
+              class="h-12 w-12 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center"
+            >
+              <Camera size={20} class="text-white" />
+            </div>
+            <span class="text-xs text-white/80 font-medium">Change photo</span>
+          </div>
+        </button>
+      {/if}
+
+      <div class="absolute top-6 right-6 flex gap-2 z-10">
         <Button
           variant="ghost"
           size="icon"
@@ -166,12 +231,28 @@
               size="sm"
               variant="secondary"
               class="rounded-full px-3"
-              on:click={() => (editing = false)}
+              on:click={() => {
+                editing = false;
+                newPhotoFile = null;
+                newPhotoPreview = "";
+              }}
             >
               <X size={14} />
             </Button>
-            <Button size="sm" class="rounded-full px-4" on:click={saveProfile}>
-              <Save size={14} class="mr-1" /> Save
+            <Button
+              size="sm"
+              class="rounded-full px-4"
+              on:click={saveProfile}
+              disabled={savingProfile}
+            >
+              {#if savingProfile}
+                <span
+                  class="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-1.5"
+                ></span>
+                Saving
+              {:else}
+                <Save size={14} class="mr-1" /> Save
+              {/if}
             </Button>
           </div>
         {:else}
@@ -295,6 +376,10 @@
       </div>
     </div>
   {/if}
+
+  <p class="text-[10px] text-neutral-700 text-center tracking-wide py-4">
+    Made with <span class="text-pink-400/60">♥</span> by Span Labs
+  </p>
 
   <Navbar />
 </div>

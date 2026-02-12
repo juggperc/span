@@ -55,6 +55,8 @@ export interface UserPreferences {
     usesWeed: boolean;
     wantsKids: 'yes' | 'no' | 'maybe';
     monogamy: 'monogamous' | 'non-monogamous' | 'open';
+    gender: 'man' | 'woman' | 'non-binary' | 'trans' | 'other';
+    lookingFor: string[];
 }
 
 // ---- Static scoring (v1 factors) ----
@@ -277,6 +279,19 @@ function mbtiFamily(type: string): string {
     return families[type] || 'unknown';
 }
 
+// ---- Gender Compatibility ----
+
+function isGenderCompatible(candidate: Profile, prefs: UserPreferences): boolean {
+    // 1. Candidate is what I'm looking for?
+    // "everyone" isn't an explicit option in the schema yet, assuming strict matching for now
+    if (!prefs.lookingFor.includes(candidate.gender)) return false;
+    
+    // 2. I am what Candidate is looking for?
+    if (!candidate.lookingFor.includes(prefs.gender)) return false;
+    
+    return true;
+}
+
 /**
  * Rank profiles with exploration budget & cross-category diversity.
  * 75% are ranked by score. 25% are diverse "exploration" picks
@@ -287,7 +302,10 @@ export function rankProfiles(
     prefs: UserPreferences,
     behaviorState: BehaviorState | null = null
 ): Profile[] {
-    const scored = profiles.map(p => ({
+    // Filter by gender compatibility first
+    const compatible = profiles.filter(p => isGenderCompatible(p, prefs));
+
+    const scored = compatible.map(p => ({
         profile: p,
         score: scoreProfile(p, prefs, behaviorState)
     }));

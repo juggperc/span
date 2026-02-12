@@ -5,7 +5,7 @@
   import Card from "$lib/components/ui/Card.svelte";
   import Navbar from "$lib/components/layout/Navbar.svelte";
   import { limits, MAX_SEARCHES } from "$lib/stores/limits";
-  import { MOCK_PROFILES, type Profile } from "$lib/stores/matches";
+  import { matches, type Profile } from "$lib/stores/matches";
   import { filterProfiles } from "$lib/algorithm";
   import { fade } from "svelte/transition";
 
@@ -29,7 +29,7 @@
   function handleSearch() {
     if (!canSearch) return;
     limits.incrementSearch();
-    results = filterProfiles(MOCK_PROFILES, distance, query);
+    results = filterProfiles($matches, distance, query);
     hasSearched = true;
   }
 

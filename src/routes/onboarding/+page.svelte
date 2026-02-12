@@ -7,13 +7,18 @@
     ArrowRight,
     ArrowLeft,
     Sparkles,
-    MapPin,
+    Share,
+    Plus,
+    MoreVertical,
+    Smartphone,
+    Check,
+    Camera,
     User,
     MessageCircle,
   } from "lucide-svelte";
   import { user } from "$lib/stores/user";
   import { upsertProfile } from "$lib/appwrite-db";
-  import { goto } from "$app/navigation";
+  import { goto } from "$app/navigation"; // Kept for type safety, but unused in runtime fallback
   import { browser } from "$app/environment";
 
   let step = 0;
@@ -26,35 +31,34 @@
   let bio = "";
   let myersBriggs = "";
   let selectedTags: string[] = [];
-  let relationshipType: "casual" | "serious" | "friends" | "open" = "serious";
-  let monogamy: "monogamous" | "non-monogamous" | "open" = "monogamous";
-  let wantsKids: "yes" | "no" | "maybe" = "maybe";
+  let gender = "";
+  let lookingFor: string[] = [];
+  let wantsKids = "maybe";
+  let relationshipType = "serious";
+  let monogamy = "monogamous";
+
+  // Mock avatar until we have real photo upload
+  $: avatarUrl = name
+    ? `https://api.dicebear.com/7.x/notionists/svg?seed=${name}&backgroundColor=e5e5e5`
+    : "";
 
   const AVAILABLE_TAGS = [
-    "Travel",
     "Coffee",
+    "Hiking",
+    "Photography",
     "Cooking",
+    "Gaming",
+    "Travel",
     "Music",
     "Art",
-    "Fitness",
     "Reading",
-    "Photography",
-    "Hiking",
-    "Gaming",
-    "Movies",
-    "Design",
+    "Fitness",
     "Tech",
+    "Movies",
     "Yoga",
-    "Wine",
-    "Dancing",
-    "Nature",
-    "Coding",
-    "Fashion",
     "Foodie",
-    "Meditation",
-    "Dogs",
-    "Cats",
-    "Running",
+    "Nature",
+    "Dancing",
   ];
 
   const MBTI_TYPES = [
@@ -76,49 +80,49 @@
     "ESFP",
   ];
 
-  $: if (browser && $user?.name) {
-    name = name || $user.name;
+  function nextStep() {
+    if (step < steps.length - 1) {
+      step++;
+    }
+  }
+
+  function prevStep() {
+    if (step > 0) {
+      step--;
+    }
   }
 
   function toggleTag(tag: string) {
     if (selectedTags.includes(tag)) {
       selectedTags = selectedTags.filter((t) => t !== tag);
-    } else if (selectedTags.length < 8) {
-      selectedTags = [...selectedTags, tag];
+    } else {
+      if (selectedTags.length < 8) {
+        selectedTags = [...selectedTags, tag];
+      }
     }
   }
 
-  function next() {
-    if (step < 4) step++;
+  function toggleLookingFor(g: string) {
+    if (lookingFor.includes(g)) {
+      // Don't allow empty selection
+      if (lookingFor.length > 1) {
+        lookingFor = lookingFor.filter((x) => x !== g);
+      }
+    } else {
+      lookingFor = [...lookingFor, g];
+    }
   }
-
-  function prev() {
-    if (step > 0) step--;
-  }
-
-  $: canProceed =
-    step === 0
-      ? String(name).trim().length > 0 && String(age).trim().length > 0
-      : step === 1
-        ? selectedTags.length >= 3
-        : step === 2
-          ? true
-          : step === 3
-            ? bio.trim().length >= 10
-            : true;
 
   async function finish() {
     if (!$user) return;
     saving = true;
+
     try {
       await upsertProfile($user.$id, {
-        name: name.trim(),
-        age: parseInt(age) || 25,
         location: location.trim() || "Unknown",
         bio: bio.trim(),
         tags: selectedTags,
-        imageUrl:
-          "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=800&auto=format&fit=crop&q=60",
+        imageUrl: avatarUrl,
         distance: 0,
         myersBriggs: myersBriggs || "INFJ",
         smoker: false,
@@ -126,33 +130,43 @@
         wantsKids,
         relationshipType,
         monogamy,
+        name: name.trim(),
+        age: parseInt(age) || 18,
+        gender: gender || "non-binary",
+        lookingFor: lookingFor.length ? lookingFor : ["everyone"],
       });
+      console.log("Profile saved successfully");
+
       // Mark onboarding complete
       if (browser) localStorage.setItem("span_onboarded", "true");
-      goto("/");
-    } catch (e) {
-      console.error("Onboarding save failed:", e);
+
+      // Force navigation using window.location to avoid goto() reference errors
+      window.location.href = "/";
+    } catch (e: any) {
+      console.error("Onboarding save failed:", e.message || e);
       // Still navigate — profile can be edited later
       if (browser) localStorage.setItem("span_onboarded", "true");
-      goto("/");
+      window.location.href = "/";
     } finally {
       saving = false;
     }
   }
 
   const steps = [
+    { title: "Photo", icon: Camera },
     { title: "About You", icon: User },
     { title: "Interests", icon: Sparkles },
     { title: "Preferences", icon: Heart },
     { title: "Your Bio", icon: MessageCircle },
+    { title: "Install", icon: Smartphone },
     { title: "Ready", icon: ArrowRight },
   ];
 </script>
 
-<div class="h-full w-full flex flex-col p-6 pt-10 overflow-y-auto">
-  <!-- Steps indicator -->
-  <div class="flex items-center gap-1.5 mb-8">
-    {#each steps as s, i}
+<div class="h-full w-full flex flex-col p-6 pt-12 overflow-y-auto">
+  <!-- Progress bar -->
+  <div class="flex gap-2 mb-8">
+    {#each Array(6) as _, i}
       <div
         class="h-1 flex-1 rounded-full transition-all duration-500 {i <= step
           ? 'bg-white'
@@ -164,28 +178,60 @@
   <!-- Step content -->
   <div class="flex-1 flex flex-col animate-fade-in">
     {#if step === 0}
-      <!-- Step 1: Basic Info -->
+      <!-- Step 0: Identity (Name, Age, Gender) -->
       <div class="space-y-6">
         <div>
-          <h1 class="text-2xl font-bold text-white mb-1">Welcome to span</h1>
+          <h1 class="text-2xl font-bold text-white mb-1">About you</h1>
           <p class="text-sm text-neutral-400">
-            Let's set up your profile. This takes about a minute.
+            Let's create your digital twin.
           </p>
         </div>
 
+        <!-- Generated Avatar Preview -->
+        <div class="flex justify-center py-2">
+          <div
+            class="relative h-24 w-24 rounded-full overflow-hidden border-2 border-neutral-700 bg-neutral-800"
+          >
+            <img
+              src={avatarUrl}
+              alt="Avatar"
+              class="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+
         <Input label="Your name" placeholder="First name" bind:value={name} />
-        <Input label="Age" placeholder="25" type="number" bind:value={age} />
-        <Input
-          label="Location"
-          placeholder="City, Country"
-          bind:value={location}
-        />
+
+        <div class="grid grid-cols-2 gap-4">
+          <Input label="Age" placeholder="25" type="number" bind:value={age} />
+          <Input label="Location" placeholder="City" bind:value={location} />
+        </div>
+
+        <!-- Gender Selection -->
+        <div>
+          <span class="text-xs font-medium text-neutral-400 pl-1 block mb-2"
+            >I am a</span
+          >
+          <div class="flex flex-wrap gap-2">
+            {#each ["man", "woman", "non-binary", "trans", "other"] as g}
+              <button
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 capitalize {gender ===
+                g
+                  ? 'bg-white text-black'
+                  : 'bg-neutral-800/60 text-neutral-400 border border-neutral-800 hover:border-neutral-600'}"
+                on:click={() => (gender = g)}
+              >
+                {g}
+              </button>
+            {/each}
+          </div>
+        </div>
 
         <div>
           <span class="text-xs font-medium text-neutral-400 pl-1 block mb-2"
             >MBTI (optional)</span
           >
-          <div class="flex flex-wrap gap-1.5">
+          <div class="flex flex-wrap gap-1.5 prose-invert">
             {#each MBTI_TYPES as type}
               <button
                 class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-200 {myersBriggs ===
@@ -201,7 +247,7 @@
         </div>
       </div>
     {:else if step === 1}
-      <!-- Step 2: Interests -->
+      <!-- Step 1: Interests -->
       <div class="space-y-5">
         <div>
           <h1 class="text-2xl font-bold text-white mb-1">Your interests</h1>
@@ -229,7 +275,7 @@
         </div>
       </div>
     {:else if step === 2}
-      <!-- Step 3: Preferences -->
+      <!-- Step 2: Preferences -->
       <div class="space-y-6">
         <div>
           <h1 class="text-2xl font-bold text-white mb-1">
@@ -240,177 +286,153 @@
           </p>
         </div>
 
-        <!-- Relationship type -->
+        <!-- Looking For (Gender) -->
         <div>
           <span class="text-xs font-medium text-neutral-400 pl-1 block mb-2"
-            >Looking for</span
+            >Interested in</span
           >
-          <div class="grid grid-cols-2 gap-2">
-            {#each [{ value: "serious", label: "Something serious" }, { value: "casual", label: "Casual" }, { value: "friends", label: "Friends first" }, { value: "open", label: "Open to anything" }] as opt}
+          <div class="flex flex-wrap gap-2">
+            {#each ["man", "woman", "non-binary", "trans", "other"] as g}
               <button
-                class="p-3 rounded-xl text-sm text-left transition-all duration-200 {relationshipType ===
-                opt.value
-                  ? 'bg-white text-black font-medium'
-                  : 'bg-neutral-800/50 text-neutral-400 border border-neutral-800 hover:border-neutral-600'}"
-                on:click={() =>
-                  (relationshipType = opt.value as typeof relationshipType)}
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 capitalize {lookingFor.includes(
+                  g,
+                )
+                  ? 'bg-white text-black'
+                  : 'bg-neutral-800/60 text-neutral-400 border border-neutral-800 hover:border-neutral-600'}"
+                on:click={() => toggleLookingFor(g)}
               >
-                {opt.label}
+                {g}
               </button>
             {/each}
           </div>
         </div>
 
-        <!-- Monogamy -->
-        <div>
-          <span class="text-xs font-medium text-neutral-400 pl-1 block mb-2"
-            >Relationship style</span
-          >
-          <div class="grid grid-cols-3 gap-2">
-            {#each [{ value: "monogamous", label: "Monogamous" }, { value: "non-monogamous", label: "Non-mono" }, { value: "open", label: "Open" }] as opt}
-              <button
-                class="p-3 rounded-xl text-xs text-center transition-all duration-200 {monogamy ===
-                opt.value
-                  ? 'bg-white text-black font-medium'
-                  : 'bg-neutral-800/50 text-neutral-400 border border-neutral-800 hover:border-neutral-600'}"
-                on:click={() => (monogamy = opt.value as typeof monogamy)}
-              >
-                {opt.label}
-              </button>
-            {/each}
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Kids -->
+          <div>
+            <span class="text-xs font-medium text-neutral-400 pl-1 block mb-2"
+              >Wants kids?</span
+            >
+            <select
+              bind:value={wantsKids}
+              class="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-500"
+            >
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+              <option value="maybe">Maybe</option>
+            </select>
           </div>
-        </div>
-
-        <!-- Kids -->
-        <div>
-          <span class="text-xs font-medium text-neutral-400 pl-1 block mb-2"
-            >Want kids?</span
-          >
-          <div class="grid grid-cols-3 gap-2">
-            {#each [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }, { value: "maybe", label: "Maybe" }] as opt}
-              <button
-                class="p-3 rounded-xl text-sm text-center transition-all duration-200 {wantsKids ===
-                opt.value
-                  ? 'bg-white text-black font-medium'
-                  : 'bg-neutral-800/50 text-neutral-400 border border-neutral-800 hover:border-neutral-600'}"
-                on:click={() => (wantsKids = opt.value as typeof wantsKids)}
-              >
-                {opt.label}
-              </button>
-            {/each}
+          <!-- Relationship -->
+          <div>
+            <span class="text-xs font-medium text-neutral-400 pl-1 block mb-2"
+              >Looking for</span
+            >
+            <select
+              bind:value={relationshipType}
+              class="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-500"
+            >
+              <option value="serious">Serious</option>
+              <option value="casual">Casual</option>
+              <option value="friendship">Friends</option>
+            </select>
           </div>
         </div>
       </div>
     {:else if step === 3}
-      <!-- Step 4: Bio -->
+      <!-- Step 3: Bio -->
       <div class="space-y-5">
         <div>
-          <h1 class="text-2xl font-bold text-white mb-1">Tell your story</h1>
+          <h1 class="text-2xl font-bold text-white mb-1">Your story</h1>
           <p class="text-sm text-neutral-400">
-            Write something real. Profiles with thoughtful bios get 3× more
-            meaningful matches.
+            Tell us about yourself. Avoid clichés.
           </p>
         </div>
 
-        <textarea
-          bind:value={bio}
-          placeholder="What should someone know about you? What matters to you? What are you curious about?"
-          class="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl py-4 px-4 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none h-40 leading-relaxed"
-        ></textarea>
-
-        <div class="flex justify-between text-[11px] text-neutral-600 px-1">
-          <span>{bio.length} characters</span>
-          <span class={bio.length >= 10 ? "text-emerald-500" : ""}
-            >{bio.length >= 10 ? "✓ Looks good" : "10+ characters"}</span
+        <div class="relative">
+          <textarea
+            bind:value={bio}
+            placeholder="I'm a..."
+            class="w-full h-40 bg-neutral-800/50 border border-neutral-700 rounded-2xl p-4 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-neutral-500 resize-none"
+          ></textarea>
+          <span
+            class="absolute bottom-4 right-4 text-xs text-neutral-500 font-mono"
+            >{bio.length}/300</span
           >
         </div>
       </div>
     {:else if step === 4}
+      <!-- Step 4: Install (Skipped for PWA logic usually, but kept for flow) -->
+      <div class="space-y-6 text-center pt-8">
+        <div
+          class="h-24 w-24 rounded-3xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto shadow-2xl shadow-black"
+        >
+          <Smartphone size={48} class="text-white" />
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-white mb-2">Install App</h1>
+          <p class="text-sm text-neutral-400 max-w-xs mx-auto">
+            For the best experience, add Span to your home screen.
+          </p>
+        </div>
+        <div
+          class="p-4 rounded-xl bg-neutral-800/50 border border-neutral-700 text-left text-xs text-neutral-300 space-y-2"
+        >
+          <p>
+            <span class="font-bold text-white">1.</span> Tap the Share icon <Share
+              size={12}
+              class="inline"
+            />
+          </p>
+          <p>
+            <span class="font-bold text-white">2.</span> Scroll down to "Add to
+            Home Screen" <Plus size={12} class="inline" />
+          </p>
+        </div>
+      </div>
+    {:else if step === 5}
       <!-- Step 5: Ready -->
-      <div
-        class="flex-1 flex flex-col items-center justify-center text-center space-y-6"
-      >
+      <div class="space-y-6 text-center pt-12">
         <div
-          class="h-20 w-20 rounded-full gradient-love flex items-center justify-center animate-soft-pulse"
+          class="h-24 w-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto"
         >
-          <Heart size={36} class="text-white" />
+          <Check size={48} class="text-emerald-500" />
         </div>
-
-        <div class="space-y-2">
-          <h1 class="text-2xl font-bold text-white">You're all set, {name}</h1>
-          <p
-            class="text-sm text-neutral-400 max-w-[280px] mx-auto leading-relaxed"
-          >
-            Remember — you get 20 swipes and 5 likes per day. Make each one
-            count.
+        <div>
+          <h1 class="text-2xl font-bold text-white mb-2">You're ready</h1>
+          <p class="text-sm text-neutral-400 max-w-xs mx-auto">
+            Your profile is set. Let's find your people.
           </p>
         </div>
-
-        <div
-          class="text-left w-full max-w-xs space-y-2 p-4 rounded-xl bg-neutral-800/30 border border-neutral-800/50"
-        >
-          <p
-            class="text-xs font-medium text-neutral-500 uppercase tracking-wider"
-          >
-            Your profile
-          </p>
-          <p class="text-white font-semibold">
-            {name}, {age}
-          </p>
-          <p class="text-sm text-neutral-400">
-            {location || "Location not set"}
-          </p>
-          <div class="flex flex-wrap gap-1 mt-1">
-            {#each selectedTags.slice(0, 5) as tag}
-              <span
-                class="text-[10px] px-2 py-0.5 rounded-full bg-neutral-700/50 text-neutral-300"
-                >{tag}</span
-              >
-            {/each}
-            {#if selectedTags.length > 5}
-              <span
-                class="text-[10px] px-2 py-0.5 rounded-full bg-neutral-700/50 text-neutral-400"
-                >+{selectedTags.length - 5}</span
-              >
-            {/if}
-          </div>
-        </div>
-
-        <Button
-          class="w-full max-w-xs gradient-love text-white border-0 hover:opacity-90"
-          on:click={finish}
-          disabled={saving}
-        >
-          {#if saving}
-            <span class="flex items-center gap-2">
-              <span
-                class="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"
-              ></span>
-              Setting up...
-            </span>
-          {:else}
-            Start matching <ArrowRight size={16} class="ml-2" />
-          {/if}
-        </Button>
       </div>
     {/if}
   </div>
 
-  <!-- Navigation buttons -->
-  {#if step < 4}
-    <div class="flex gap-3 mt-6 pb-4">
-      {#if step > 0}
-        <Button variant="secondary" class="flex-1" on:click={prev}>
-          <ArrowLeft size={16} class="mr-1" /> Back
-        </Button>
-      {/if}
-      <Button
-        class="flex-1 {canProceed ? '' : 'opacity-50'}"
-        on:click={next}
-        disabled={!canProceed}
+  <!-- Footer Controls -->
+  <div class="mt-8 flex justify-between items-center">
+    {#if step > 0}
+      <button
+        class="text-sm text-neutral-500 hover:text-white transition-colors px-2 py-1"
+        on:click={prevStep}
       >
-        Continue <ArrowRight size={16} class="ml-1" />
+        Back
+      </button>
+    {:else}
+      <div></div>
+    {/if}
+
+    {#if step < 5}
+      <Button on:click={nextStep} class="px-8" disabled={step === 0 && !name}>
+        Next <ArrowRight size={16} class="ml-2" />
       </Button>
-    </div>
-  {/if}
+    {:else}
+      <Button
+        on:click={finish}
+        class="px-8 bg-emerald-500 hover:bg-emerald-400 text-black border-emerald-400"
+        disabled={saving}
+        loading={saving}
+      >
+        Start Swiping
+      </Button>
+    {/if}
+  </div>
 </div>

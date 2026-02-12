@@ -5,6 +5,7 @@
   import { browser } from "$app/environment";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
+  import Logo from "$lib/components/ui/Logo.svelte";
 
   // Public routes that don't require auth
   const PUBLIC_ROUTES = ["/login", "/onboarding"];
@@ -17,6 +18,14 @@
 
   // Auth guard — redirect to login if not authenticated
   $: if (browser && !$isLoading) {
+    console.log(
+      "[Layout] isLoading =",
+      $isLoading,
+      "isAuthenticated =",
+      $isAuthenticated,
+      "Path =",
+      $page.url.pathname,
+    );
     const isPublic = PUBLIC_ROUTES.includes($page.url.pathname);
     if (!$isAuthenticated && !isPublic) {
       goto("/login");
@@ -32,7 +41,7 @@
     class="font-geist min-h-screen bg-black text-white flex items-center justify-center"
   >
     <div class="flex flex-col items-center gap-4 animate-fade-in">
-      <img src="/logo.svg" alt="span" class="h-8 w-auto" />
+      <Logo size="lg" />
       <div class="h-1 w-16 bg-neutral-800 rounded-full overflow-hidden">
         <div class="h-full w-8 bg-white/30 rounded-full loading-bar"></div>
       </div>

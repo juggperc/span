@@ -1,4 +1,5 @@
-import { databases, DB_ID, COLLECTIONS, ID, Query } from '$lib/appwrite';
+import { databases, storage, DB_ID, COLLECTIONS, BUCKET_ID, ID, Query } from '$lib/appwrite';
+import { PUBLIC_APPWRITE_ENDPOINT, PUBLIC_APPWRITE_PROJECT_ID } from '$env/static/public';
 import type { Models } from 'appwrite';
 
 /**
@@ -7,6 +8,24 @@ import type { Models } from 'appwrite';
  * Each function handles the Appwrite SDK calls and returns
  * typed data. Stores call these helpers and manage local state.
  */
+
+// --- Image Upload ---
+
+/**
+ * Upload a profile image to Appwrite Storage.
+ * Returns the public URL of the uploaded file.
+ */
+export async function uploadProfileImage(file: File): Promise<string> {
+    const result = await storage.createFile(BUCKET_ID, ID.unique(), file);
+    return getImageUrl(result.$id);
+}
+
+/**
+ * Get the viewable URL for a file stored in Appwrite Storage.
+ */
+export function getImageUrl(fileId: string): string {
+    return `${PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${fileId}/view?project=${PUBLIC_APPWRITE_PROJECT_ID}`;
+}
 
 // --- Types ---
 
@@ -26,6 +45,8 @@ export interface ProfileDoc {
     relationshipType: 'casual' | 'serious' | 'friends' | 'open';
     monogamy: 'monogamous' | 'non-monogamous' | 'open';
     anchorAnswer?: string;
+    gender: 'man' | 'woman' | 'non-binary' | 'trans' | 'other';
+    lookingFor: string[];
 }
 
 export interface MatchDoc {

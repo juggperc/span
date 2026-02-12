@@ -1,6 +1,7 @@
 <script lang="ts">
   import Input from "$lib/components/ui/Input.svelte";
   import Button from "$lib/components/ui/Button.svelte";
+  import Logo from "$lib/components/ui/Logo.svelte";
   import { account } from "$lib/appwrite";
   import { ID } from "appwrite";
   import { goto } from "$app/navigation";
@@ -49,15 +50,28 @@
   }
 </script>
 
-<div class="flex flex-col items-center justify-center h-full px-6 space-y-8">
+<div class="flex flex-col items-center justify-center h-full px-8 space-y-8">
   <!-- Branding -->
-  <div class="text-center space-y-3 animate-fade-in">
-    <div
-      class="h-16 w-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 overflow-hidden"
-    >
-      <img src="/icon.svg" alt="span" class="h-16 w-16" />
+  <div class="text-center space-y-4 animate-fade-in">
+    <!-- 3D Spinning Heart -->
+    <div class="heart-stage mx-auto mb-2">
+      <div class="heart-3d">
+        <svg viewBox="0 0 24 24" fill="url(#heart-grad)" class="h-10 w-10">
+          <defs>
+            <linearGradient id="heart-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#60a5fa" />
+              <stop offset="50%" stop-color="#c084fc" />
+              <stop offset="100%" stop-color="#f472b6" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+          />
+        </svg>
+      </div>
     </div>
-    <img src="/logo.svg" alt="span" class="h-10 w-auto mx-auto" />
+
+    <Logo size="xl" />
     <p class="text-neutral-500 text-sm">
       {isRegister
         ? "Create your account to start connecting."
@@ -120,4 +134,47 @@
     20 swipes. 5 likes. One question per day.<br />
     Less choice. Better connections.
   </p>
+
+  <p class="text-[10px] text-neutral-700 text-center tracking-wide">
+    Made with <span class="text-pink-400/60">♥</span> by Span Labs
+  </p>
 </div>
+
+<style>
+  .heart-stage {
+    perspective: 600px;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .heart-3d {
+    animation:
+      heart-spin 4s ease-in-out infinite,
+      heart-pulse 2s ease-in-out infinite;
+    transform-style: preserve-3d;
+    filter: drop-shadow(0 0 12px rgba(192, 132, 252, 0.3))
+      drop-shadow(0 0 24px rgba(244, 114, 182, 0.15));
+  }
+
+  @keyframes heart-spin {
+    0% {
+      transform: rotateY(0deg);
+    }
+    100% {
+      transform: rotateY(360deg);
+    }
+  }
+
+  @keyframes heart-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.08);
+    }
+  }
+</style>

@@ -56,7 +56,7 @@
       >
         <svelte:component
           this={item.icon}
-          size={19}
+          size={18}
           strokeWidth={path === item.href ? 2.4 : 1.7}
         />
         {#if path === item.href}
@@ -187,14 +187,15 @@
   .navbar-item {
     position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     flex: 1;
     height: 100%;
     color: rgba(255, 255, 255, 0.35);
-    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: color 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     text-decoration: none;
-    gap: 4px;
+    gap: 2px;
   }
 
   .navbar-item:hover {
@@ -207,17 +208,16 @@
 
   .navbar-item.active {
     color: rgba(255, 255, 255, 0.95);
-    transform: scale(1.05);
   }
 
   /* Active label */
   .navbar-label {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
+    line-height: 1;
     opacity: 0;
-    transform: translateY(2px);
     animation: label-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
   }
 
@@ -237,7 +237,6 @@
   @keyframes label-in {
     to {
       opacity: 0.7;
-      transform: translateY(0);
     }
   }
 </style>
