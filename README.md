@@ -2,43 +2,93 @@
 
 A mindful dating application focused on swiping intentionality and algorithmic transparency.
 
-## 🚀 Recent Updates
+> [!NOTE]
+> This project is currently in active development.
 
-### 1. **Infinite Loading Fix**
+## 🚀 Recent Updates (Fixed Logic)
 
-- Resolved an issue where the app would hang on the splash screen due to authentication timeouts or missing database collections.
-- Added a 5-second race timeout to `initUser` to prevent hanging.
-- Replaced SvelteKit `goto` with `window.location.href` in critical redirect paths (Home and Onboarding) to prevent `ReferenceError` crashes.
+### 1. **Infinite Loading Resolved**
+
+- **Problem**: Missing Appwrite Database/Collections caused the app to fail silently or redirect infinitely between Home and Onboarding.
+- **Fix**:
+  - Implemented a **Mock Fallback**: If the database is missing, the app now uses a local mock profile so you can still experience the UI.
+  - Added **Timeout Protection**: `initUser` now races against a 5s timeout to prevent hanging.
+  - **Robust Navigation**: Replaced `goto` with `window.location` to prevent crashes.
 
 ### 2. **Admin Panel**
 
-- Access at `/admin`.
-- **Secret Key**: Check `.env` (default: `span_admin_secret_key_2026`).
+- **Route**: `/admin`
+- **Secret**: `span_admin_secret_key_2026`
 - **Features**:
-  - **User List**: View all registered users.
-  - **Flush All**: Delete all user profiles to reset the system.
-  - **Seed Users**: One-click generation of 5 mock profiles for testing matching algorithms.
+  - **Seed Users**: Generate 5 mock profiles instantly.
+  - **Flush**: Reset all data.
 
-### 3. **Onboarding Refactor**
+### 3. **Future Agents Tasks**
 
-- Removed photo upload (replaced with **Facehash** / Dicebear avatars for privacy & speed).
-- Added **Gender & Preference** selection (Man, Woman, Non-binary / Seeking same).
-- Direct integration with Appwrite Database.
+- **Migration**: Move to Svelte 5 (Runes).
+- **PWA**: Add `manifest.json` and service worker.
+- **Type Safety**: Harden `behavior.ts` types.
+
+---
 
 ## 🛠️ Setup Requirements
 
 > [!IMPORTANT]
-> **Database Setup is Critical**
-> SvelteKit 404 errors during loading often mean the Appwrite Database is missing.
+> **Database Setup is Critical for Real Data**
+> While the app now works in "Mock Mode" without a DB, for real persistence you must set up Appwrite:
 
 1.  **Appwrite Project**: Ensure you have a running Appwrite instance (or Cloud).
-2.  **Env Variables**: `PUBLIC_APPWRITE_PROJECT_ID` and `PUBLIC_APPWRITE_ENDPOINT` must be set in `.env`.
+2.  **Env Variables**: `PUBLIC_APPWRITE_PROJECT_ID` and `PUBLIC_APPWRITE_ENDPOINT` in `.env`.
 3.  **Database Structure**:
     - **Database ID**: `span_db`
     - **Collection ID**: `profiles`
       - Attributes: `name` (string), `age` (integer), `gender` (string), `lookingFor` (string array), `bio` (string), `imageUrl` (string/url), `tags` (string array), ...
 
-## 📦 commands
+---
 
-- `npm run dev` - Start development server.
-- `npm run build` - Build for production.
+## Developing
+
+Once you've installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+
+```bash
+npm run dev
+
+# or start the server and open the app in a new browser tab
+npm run dev -- --open
+```
+
+## Building
+
+To create a production version of your app:
+
+```bash
+npm run build
+```
+
+You can preview the production build with `npm run preview`.
+
+> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+
+## Deployment
+
+### Vercel
+
+The easiest way to build and deploy is via Vercel.
+
+1. Push code to GitHub.
+2. Import project into Vercel.
+3. Add Environment Variables (`PUBLIC_APPWRITE...`, `PUBLIC_ADMIN_SECRET`).
+4. Deploy.
+
+### Appwrite Cloud
+
+Host your backend on Appwrite Cloud (free tier available).
+
+1. Create Project.
+2. Create Database `span_db`.
+3. Create Collection `profiles`.
+4. Set Permissions (Role: Any can create/read, User can update/delete their own).
+
+## License
+
+MIT

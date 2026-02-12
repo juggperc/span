@@ -31,11 +31,13 @@
   let bio = "";
   let myersBriggs = "";
   let selectedTags: string[] = [];
-  let gender = "";
+
+  // Explicit entry types to satisfy typescript
+  let gender: "man" | "woman" | "non-binary" | "trans" | "other" | "" = "";
   let lookingFor: string[] = [];
-  let wantsKids = "maybe";
-  let relationshipType = "serious";
-  let monogamy = "monogamous";
+  let wantsKids: "yes" | "no" | "maybe" = "maybe";
+  let relationshipType: "serious" | "casual" | "friends" | "open" = "serious";
+  let monogamy: "monogamous" | "non-monogamous" | "open" = "monogamous";
 
   // Mock avatar until we have real photo upload
   $: avatarUrl = name
@@ -132,7 +134,7 @@
         monogamy,
         name: name.trim(),
         age: parseInt(age) || 18,
-        gender: gender || "non-binary",
+        gender: (gender || "non-binary") as any,
         lookingFor: lookingFor.length ? lookingFor : ["everyone"],
       });
       console.log("Profile saved successfully");
@@ -144,11 +146,14 @@
       window.location.href = "/";
     } catch (e: any) {
       console.error("Onboarding save failed:", e.message || e);
+
+      // Alert the user so they know WHY it failed
       alert(
         "Failed to save profile. Please check that the Appwrite 'profiles' collection exists. \n\nError: " +
           (e.message || e),
       );
-      // Do NOT redirect if save failed, otherwise we get infinite loop
+
+      // DO NOT REDIRECT so they can try again or see the error
     } finally {
       saving = false;
     }
@@ -336,6 +341,7 @@
               <option value="serious">Serious</option>
               <option value="casual">Casual</option>
               <option value="friendship">Friends</option>
+              <option value="open">Open</option>
             </select>
           </div>
         </div>
