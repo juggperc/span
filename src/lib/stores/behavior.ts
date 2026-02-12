@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
-import { browser } from '$app/environment';
 import { getUserId } from '$lib/stores/user';
 import { writeBehaviorSignals, getUserBehaviorSignals } from '$lib/appwrite-db';
+import { readStorage, writeStorage, removeStorage } from '$lib/storage';
 
 /**
  * Behavioral signal store — tracks implicit user preferences.
@@ -69,7 +69,7 @@ function computeTagAffinities(signals: BehaviorSignal[]): Record<string, number>
 }
 
 function createBehaviorStore() {
-    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
+    const stored = readStorage<BehaviorState>(STORAGE_KEY);
     let initial: BehaviorState = {
         signals: [],
         tagAffinities: {},
@@ -80,12 +80,11 @@ function createBehaviorStore() {
 
     if (stored) {
         try {
-            const parsed = JSON.parse(stored);
-            parsed.signals = decaySignals(parsed.signals || []);
-            parsed.tagAffinities = computeTagAffinities(parsed.signals);
-            parsed.sessionSwipeTimes = parsed.sessionSwipeTimes || [];
-            parsed.pendingSync = parsed.pendingSync || [];
-            initial = parsed;
+            stored.signals = decaySignals(stored.signals || []);
+            stored.tagAffinities = computeTagAffinities(stored.signals);
+            stored.sessionSwipeTimes = stored.sessionSwipeTimes || [];
+            stored.pendingSync = stored.pendingSync || [];
+            initial = stored;
         } catch {
             // corrupted
         }
@@ -94,7 +93,7 @@ function createBehaviorStore() {
     const { subscribe, set, update } = writable<BehaviorState>(initial);
 
     function persist(state: BehaviorState) {
-        if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        writeStorage(STORAGE_KEY, state);
         return state;
     }
 
@@ -206,7 +205,7 @@ function createBehaviorStore() {
                 pendingSync: [],
             };
             set(empty);
-            if (browser) localStorage.removeItem(STORAGE_KEY);
+            removeStorage(STORAGE_KEY);
         }
     };
 }

@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { browser } from '$app/environment';
+import { readStorage, writeStorage, removeStorage } from '$lib/storage';
 
 /**
  * Subscription store — manages premium status.
@@ -22,7 +22,7 @@ export const PREMIUM_PERIOD = '/month';
 const STORAGE_KEY = 'span_subscription';
 
 function createSubscriptionStore() {
-    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
+    const stored = readStorage<SubscriptionState>(STORAGE_KEY);
     let initial: SubscriptionState = {
         plan: 'free',
         expiresAt: null,
@@ -32,12 +32,11 @@ function createSubscriptionStore() {
 
     if (stored) {
         try {
-            const parsed = JSON.parse(stored);
             // Check if subscription has expired
-            if (parsed.expiresAt && new Date(parsed.expiresAt) < new Date()) {
-                parsed.plan = 'free';
+            if (stored.expiresAt && new Date(stored.expiresAt) < new Date()) {
+                stored.plan = 'free';
             }
-            initial = parsed;
+            initial = stored;
         } catch {
             // corrupted
         }
@@ -46,7 +45,7 @@ function createSubscriptionStore() {
     const { subscribe, set, update } = writable<SubscriptionState>(initial);
 
     function persist(state: SubscriptionState) {
-        if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        writeStorage(STORAGE_KEY, state);
         return state;
     }
 
@@ -99,7 +98,7 @@ function createSubscriptionStore() {
                 stripeSubscriptionId: null,
             };
             set(fresh);
-            if (browser) localStorage.removeItem(STORAGE_KEY);
+            removeStorage(STORAGE_KEY);
         }
     };
 }

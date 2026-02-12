@@ -1,7 +1,7 @@
-import { writable, get } from 'svelte/store';
-import { browser } from '$app/environment';
+import { writable } from 'svelte/store';
 import { getUserId } from '$lib/stores/user';
 import { getTodayLimits, upsertDailyLimits } from '$lib/appwrite-db';
+import { readStorage, writeStorage, removeStorage } from '$lib/storage';
 
 export const MAX_SWIPES = 20;
 export const MAX_LIKES_SENT = 5;
@@ -23,14 +23,13 @@ function todayStr(): string {
 
 function createLimitsStore() {
     const today = todayStr();
-    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
+    const stored = readStorage<LimitState>(STORAGE_KEY);
     let initial: LimitState = { swipes: 0, likesSent: 0, searches: 0, date: today, docId: null };
 
     if (stored) {
         try {
-            const parsed: LimitState = JSON.parse(stored);
-            if (parsed.date === today) {
-                initial = parsed;
+            if (stored.date === today) {
+                initial = stored;
             }
         } catch {
             // corrupted
@@ -40,7 +39,7 @@ function createLimitsStore() {
     const { subscribe, set, update } = writable<LimitState>(initial);
 
     function persist(state: LimitState) {
-        if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        writeStorage(STORAGE_KEY, state);
         return state;
     }
 
@@ -112,7 +111,7 @@ function createLimitsStore() {
         reset: () => {
             const fresh: LimitState = { swipes: 0, likesSent: 0, searches: 0, date: todayStr(), docId: null };
             set(fresh);
-            if (browser) localStorage.removeItem(STORAGE_KEY);
+            removeStorage(STORAGE_KEY);
         }
     };
 }

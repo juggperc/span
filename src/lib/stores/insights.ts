@@ -1,6 +1,6 @@
-import { writable, get } from 'svelte/store';
-import { browser } from '$app/environment';
+import { writable } from 'svelte/store';
 import type { BehaviorState } from '$lib/stores/behavior';
+import { readStorage, writeStorage, removeStorage } from '$lib/storage';
 
 /**
  * Pattern Mirror — weekly behavioral insights.
@@ -118,13 +118,13 @@ export function generateInsights(behaviorState: BehaviorState): string[] {
 }
 
 function createInsightsStore() {
-    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
-    const initial: InsightEntry[] = stored ? JSON.parse(stored) : [];
+    const stored = readStorage<InsightEntry[]>(STORAGE_KEY);
+    const initial: InsightEntry[] = stored ?? [];
 
     const { subscribe, set, update } = writable<InsightEntry[]>(initial);
 
     function persist(entries: InsightEntry[]) {
-        if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+        writeStorage(STORAGE_KEY, entries);
         return entries;
     }
 
@@ -161,7 +161,7 @@ function createInsightsStore() {
 
         reset: () => {
             set([]);
-            if (browser) localStorage.removeItem(STORAGE_KEY);
+            removeStorage(STORAGE_KEY);
         }
     };
 }

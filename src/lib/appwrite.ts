@@ -1,12 +1,16 @@
 import { Client, Account, Databases, Storage, ID, Query } from 'appwrite';
-import { PUBLIC_APPWRITE_PROJECT_ID, PUBLIC_APPWRITE_ENDPOINT } from '$env/static/public';
+import { appwriteConfig } from '$lib/appwrite-config';
 
 // --- Client setup ---
 export const client = new Client();
 
-client
-    .setEndpoint(PUBLIC_APPWRITE_ENDPOINT)
-    .setProject(PUBLIC_APPWRITE_PROJECT_ID);
+if (appwriteConfig.isConfigured) {
+    client
+        .setEndpoint(appwriteConfig.endpoint)
+        .setProject(appwriteConfig.projectId);
+}
+
+export const appwriteConfigured = appwriteConfig.isConfigured;
 
 export const account = new Account(client);
 export const databases = new Databases(client);

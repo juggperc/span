@@ -1,24 +1,28 @@
 <script lang="ts">
-  import { PUBLIC_ADMIN_SECRET } from "$env/static/public";
   import { databases, DB_ID, COLLECTIONS, Query, ID } from "$lib/appwrite";
   import Button from "$lib/components/ui/Button.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import { user } from "$lib/stores/user";
+  import { error as logError } from "$lib/logger";
   import {
     Trash2,
     RefreshCw,
     Shield,
     AlertTriangle,
     UserX,
-    Database,
   } from "lucide-svelte";
-  import { fade, slide } from "svelte/transition";
+  import { onMount } from "svelte";
+  import { fade } from "svelte/transition";
+
+  export let data: import("./$types").PageData;
 
   let secret = "";
-  let authenticated = false;
+  let authenticated = data?.authenticated ?? false;
+  let adminEnabled = data?.adminEnabled ?? false;
   let loading = false;
+  let authLoading = false;
   let users: any[] = []; // Profile docs
-  let error = "";
+  let errorMsg = "";
   let success = "";
 
   // Algorithm tuning state (mock for now, or hook into store later)
@@ -31,17 +35,54 @@
     mbtiComp: 0.05,
   };
 
-  function login() {
-    if (secret === PUBLIC_ADMIN_SECRET) {
-      authenticated = true;
+  onMount(() => {
+    if (authenticated) {
       loadUsers();
-    } else {
-      error = "Invalid admin secret";
-      setTimeout(() => (error = ""), 2000);
+    }
+  });
+
+  async function login() {
+    if (!adminEnabled) {
+      errorMsg = "Admin is not configured on the server.";
+      setTimeout(() => (errorMsg = ""), 2500);
+      return;
+    }
+    if (!secret.trim()) {
+      errorMsg = "Enter the admin secret.";
+      setTimeout(() => (errorMsg = ""), 2000);
+      return;
+    }
+
+    authLoading = true;
+    try {
+      const res = await fetch("/admin/auth", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ secret }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload.ok) {
+        throw new Error(payload?.error || "Invalid admin secret");
+      }
+      authenticated = true;
+      secret = "";
+      await loadUsers();
+    } catch (e: any) {
+      errorMsg = e.message || "Invalid admin secret";
+      setTimeout(() => (errorMsg = ""), 2200);
+    } finally {
+      authLoading = false;
     }
   }
 
+  async function logout() {
+    await fetch("/admin/auth", { method: "DELETE" }).catch(() => {});
+    authenticated = false;
+    users = [];
+  }
+
   async function loadUsers() {
+    if (!authenticated) return;
     loading = true;
     try {
       const res = await databases.listDocuments(DB_ID, COLLECTIONS.PROFILES, [
@@ -50,7 +91,7 @@
       ]);
       users = res.documents;
     } catch (e: any) {
-      error = e.message;
+      errorMsg = e.message;
     }
     loading = false;
   }
@@ -64,7 +105,7 @@
       success = `Deleted ${name}`;
       setTimeout(() => (success = ""), 3000);
     } catch (e: any) {
-      error = e.message;
+      errorMsg = e.message;
     }
   }
 
@@ -144,7 +185,7 @@
       success = "Seeded 5 mock users";
       await loadUsers();
     } catch (e: any) {
-      error = "Failed to seed: " + e.message;
+      errorMsg = "Failed to seed: " + e.message;
     }
     loading = false;
   }
@@ -164,7 +205,7 @@
         await databases.deleteDocument(DB_ID, COLLECTIONS.PROFILES, u.$id);
         deletedCount++;
       } catch (e) {
-        console.error(e);
+        logError(e);
       }
     }
 
@@ -193,7 +234,7 @@
         <Button
           variant="secondary"
           class="text-xs"
-          on:click={() => (authenticated = false)}
+          on:click={logout}
         >
           Logout
         </Button>
@@ -211,6 +252,11 @@
           <p class="text-sm text-neutral-500">
             Enter the secure admin key to proceed.
           </p>
+          {#if !adminEnabled}
+            <p class="text-xs text-amber-400">
+              Admin access is disabled. Set PRIVATE_ADMIN_SECRET to enable it.
+            </p>
+          {/if}
         </div>
 
         <div class="space-y-4">
@@ -219,12 +265,19 @@
             placeholder="• • • • • • • •"
             bind:value={secret}
             class="text-center tracking-widest"
+            disabled={authLoading || !adminEnabled}
           />
-          <Button class="w-full" on:click={login}>Authenticate</Button>
+          <Button
+            class="w-full"
+            on:click={login}
+            disabled={authLoading || !adminEnabled}
+          >
+            {authLoading ? "Authenticating..." : "Authenticate"}
+          </Button>
         </div>
 
-        {#if error}
-          <p class="text-xs text-red-500 animate-pulse">{error}</p>
+        {#if errorMsg}
+          <p class="text-xs text-red-500 animate-pulse">{errorMsg}</p>
         {/if}
       </div>
     {:else}

@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { getProfiles } from '$lib/appwrite-db';
 import type { ProfileDoc } from '$lib/appwrite-db';
+import { error } from '$lib/logger';
 
 export interface Profile {
     id: string;
@@ -63,7 +64,7 @@ function createMatchesStore() {
                     set(docs.map(docToProfile));
                 }
             } catch (err) {
-                console.error('Failed to load profiles:', err);
+                error('Failed to load profiles:', err);
             }
         },
 

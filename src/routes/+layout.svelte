@@ -6,6 +6,7 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import Logo from "$lib/components/ui/Logo.svelte";
+  import { log } from "$lib/logger";
 
   // Public routes that don't require auth
   const PUBLIC_ROUTES = ["/login", "/onboarding"];
@@ -18,7 +19,7 @@
 
   // Auth guard — redirect to login if not authenticated
   $: if (browser && !$isLoading) {
-    console.log(
+    log(
       "[Layout] isLoading =",
       $isLoading,
       "isAuthenticated =",

@@ -1,5 +1,6 @@
-import { databases, storage, DB_ID, COLLECTIONS, BUCKET_ID, ID, Query } from '$lib/appwrite';
-import { PUBLIC_APPWRITE_ENDPOINT, PUBLIC_APPWRITE_PROJECT_ID } from '$env/static/public';
+import { appwriteConfigured, databases, storage, DB_ID, COLLECTIONS, BUCKET_ID, ID, Query } from '$lib/appwrite';
+import { appwriteConfig } from '$lib/appwrite-config';
+import { error, warn } from '$lib/logger';
 import type { Models } from 'appwrite';
 
 /**
@@ -9,6 +10,18 @@ import type { Models } from 'appwrite';
  * typed data. Stores call these helpers and manage local state.
  */
 
+let warnedUnconfigured = false;
+function isAppwriteReady(): boolean {
+    if (appwriteConfigured) return true;
+    if (!warnedUnconfigured) {
+        warn(
+            'Appwrite is not configured. Returning mock or empty data. Set PUBLIC_APPWRITE_ENDPOINT and PUBLIC_APPWRITE_PROJECT_ID.'
+        );
+        warnedUnconfigured = true;
+    }
+    return false;
+}
+
 // --- Image Upload ---
 
 /**
@@ -16,6 +29,9 @@ import type { Models } from 'appwrite';
  * Returns the public URL of the uploaded file.
  */
 export async function uploadProfileImage(file: File): Promise<string> {
+    if (!isAppwriteReady()) {
+        throw new Error('Appwrite is not configured');
+    }
     const result = await storage.createFile(BUCKET_ID, ID.unique(), file);
     return getImageUrl(result.$id);
 }
@@ -24,7 +40,8 @@ export async function uploadProfileImage(file: File): Promise<string> {
  * Get the viewable URL for a file stored in Appwrite Storage.
  */
 export function getImageUrl(fileId: string): string {
-    return `${PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${fileId}/view?project=${PUBLIC_APPWRITE_PROJECT_ID}`;
+    if (!appwriteConfig.isConfigured) return '';
+    return `${appwriteConfig.endpoint}/storage/buckets/${BUCKET_ID}/files/${fileId}/view?project=${appwriteConfig.projectId}`;
 }
 
 // --- Types ---
@@ -91,6 +108,7 @@ type AppwriteDoc<T> = T & Models.Document;
 // --- Profiles ---
 
 export async function getProfiles(excludeUserId: string, limit = 30): Promise<AppwriteDoc<ProfileDoc>[]> {
+    if (!isAppwriteReady()) return [];
     try {
         const res = await databases.listDocuments(DB_ID, COLLECTIONS.PROFILES, [
             Query.notEqual('userId', excludeUserId),
@@ -103,6 +121,7 @@ export async function getProfiles(excludeUserId: string, limit = 30): Promise<Ap
 }
 
 export async function getUserProfile(userId: string): Promise<AppwriteDoc<ProfileDoc> | null> {
+    if (!isAppwriteReady()) return null;
     try {
         const res = await databases.listDocuments(DB_ID, COLLECTIONS.PROFILES, [
             Query.equal('userId', userId),
@@ -115,6 +134,18 @@ export async function getUserProfile(userId: string): Promise<AppwriteDoc<Profil
 }
 
 export async function upsertProfile(userId: string, data: Partial<ProfileDoc>): Promise<AppwriteDoc<ProfileDoc> | null> {
+    if (!isAppwriteReady()) {
+        return {
+            $id: userId,
+            userId,
+            ...data,
+            $collectionId: COLLECTIONS.PROFILES,
+            $databaseId: DB_ID,
+            $createdAt: new Date().toISOString(),
+            $updatedAt: new Date().toISOString(),
+            $permissions: []
+        } as unknown as AppwriteDoc<ProfileDoc>;
+    }
     try {
         const existing = await getUserProfile(userId);
         if (existing) {
@@ -128,7 +159,7 @@ export async function upsertProfile(userId: string, data: Partial<ProfileDoc>): 
             ) as unknown as AppwriteDoc<ProfileDoc>;
         }
     } catch (e) {
-        console.error('Profile upsert failed:', e);
+        error('Profile upsert failed:', e);
         // Fallback: If DB is broken/missing, allow user to proceed with a "local" mock profile
         // This prevents the "Infinite Loop" / "Broken App" experience for the user.
         return {
@@ -148,17 +179,19 @@ export async function upsertProfile(userId: string, data: Partial<ProfileDoc>): 
 // --- Matches ---
 
 export async function createMatch(data: MatchDoc): Promise<AppwriteDoc<MatchDoc> | null> {
+    if (!isAppwriteReady()) return null;
     try {
         return await databases.createDocument(
             DB_ID, COLLECTIONS.MATCHES, ID.unique(), data
         ) as unknown as AppwriteDoc<MatchDoc>;
     } catch (e) {
-        console.error('Match create failed:', e);
+        error('Match create failed:', e);
         return null;
     }
 }
 
 export async function getUserMatches(userId: string): Promise<AppwriteDoc<MatchDoc>[]> {
+    if (!isAppwriteReady()) return [];
     try {
         const res = await databases.listDocuments(DB_ID, COLLECTIONS.MATCHES, [
             Query.equal('fromUserId', userId),
@@ -173,6 +206,7 @@ export async function getUserMatches(userId: string): Promise<AppwriteDoc<MatchD
 }
 
 export async function checkMutualMatch(fromUserId: string, toUserId: string): Promise<boolean> {
+    if (!isAppwriteReady()) return false;
     try {
         const res = await databases.listDocuments(DB_ID, COLLECTIONS.MATCHES, [
             Query.equal('fromUserId', toUserId),
@@ -187,18 +221,20 @@ export async function checkMutualMatch(fromUserId: string, toUserId: string): Pr
 }
 
 export async function revealMatch(matchDocId: string): Promise<void> {
+    if (!isAppwriteReady()) return;
     try {
         await databases.updateDocument(DB_ID, COLLECTIONS.MATCHES, matchDocId, {
             revealed: true,
         });
     } catch (e) {
-        console.error('Match reveal failed:', e);
+        error('Match reveal failed:', e);
     }
 }
 
 // --- Behavior Signals ---
 
 export async function writeBehaviorSignals(signals: BehaviorSignalDoc[]): Promise<void> {
+    if (!isAppwriteReady()) return;
     try {
         // Batch write — create each signal document
         await Promise.allSettled(
@@ -209,11 +245,12 @@ export async function writeBehaviorSignals(signals: BehaviorSignalDoc[]): Promis
             )
         );
     } catch (e) {
-        console.error('Behavior signal write failed:', e);
+        error('Behavior signal write failed:', e);
     }
 }
 
 export async function getUserBehaviorSignals(userId: string, limit = 100): Promise<AppwriteDoc<BehaviorSignalDoc>[]> {
+    if (!isAppwriteReady()) return [];
     try {
         const res = await databases.listDocuments(DB_ID, COLLECTIONS.BEHAVIOR_SIGNALS, [
             Query.equal('userId', userId),
@@ -230,6 +267,7 @@ export async function getUserBehaviorSignals(userId: string, limit = 100): Promi
 
 export async function getTodayLimits(userId: string): Promise<AppwriteDoc<DailyLimitDoc> | null> {
     const today = new Date().toDateString();
+    if (!isAppwriteReady()) return null;
     try {
         const res = await databases.listDocuments(DB_ID, COLLECTIONS.DAILY_LIMITS, [
             Query.equal('userId', userId),
@@ -247,6 +285,7 @@ export async function upsertDailyLimits(
     data: Partial<DailyLimitDoc>
 ): Promise<AppwriteDoc<DailyLimitDoc> | null> {
     const today = new Date().toDateString();
+    if (!isAppwriteReady()) return null;
     try {
         const existing = await getTodayLimits(userId);
         if (existing) {
@@ -260,7 +299,7 @@ export async function upsertDailyLimits(
             ) as unknown as AppwriteDoc<DailyLimitDoc>;
         }
     } catch (e) {
-        console.error('Daily limits upsert failed:', e);
+        error('Daily limits upsert failed:', e);
         return null;
     }
 }
@@ -268,17 +307,19 @@ export async function upsertDailyLimits(
 // --- Journal ---
 
 export async function createJournalEntry(data: JournalEntryDoc): Promise<AppwriteDoc<JournalEntryDoc> | null> {
+    if (!isAppwriteReady()) return null;
     try {
         return await databases.createDocument(
             DB_ID, COLLECTIONS.JOURNAL_ENTRIES, ID.unique(), data
         ) as unknown as AppwriteDoc<JournalEntryDoc>;
     } catch (e) {
-        console.error('Journal entry create failed:', e);
+        error('Journal entry create failed:', e);
         return null;
     }
 }
 
 export async function getUserJournalEntries(userId: string, limit = 14): Promise<AppwriteDoc<JournalEntryDoc>[]> {
+    if (!isAppwriteReady()) return [];
     try {
         const res = await databases.listDocuments(DB_ID, COLLECTIONS.JOURNAL_ENTRIES, [
             Query.equal('userId', userId),

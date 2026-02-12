@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
-import { browser } from '$app/environment';
 import { getUserId } from '$lib/stores/user';
 import { upsertProfile } from '$lib/appwrite-db';
+import { readStorage, writeStorage, removeStorage } from '$lib/storage';
 
 /**
  * Anchor Question store — rotating daily reflective prompts.
@@ -45,7 +45,7 @@ function getQuestionForDate(dateStr: string): string {
 
 function createAnchorStore() {
     const today = new Date().toDateString();
-    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
+    const stored = readStorage<AnchorState>(STORAGE_KEY);
     let initial: AnchorState = {
         currentQuestion: getQuestionForDate(today),
         answer: '',
@@ -55,13 +55,12 @@ function createAnchorStore() {
 
     if (stored) {
         try {
-            const parsed: AnchorState = JSON.parse(stored);
-            if (parsed.questionDate === today) {
-                initial = parsed;
+            if (stored.questionDate === today) {
+                initial = stored;
             } else {
-                const newHistory = parsed.answer
-                    ? [{ question: parsed.currentQuestion, answer: parsed.answer, date: parsed.questionDate }, ...parsed.history.slice(0, 13)]
-                    : parsed.history;
+                const newHistory = stored.answer
+                    ? [{ question: stored.currentQuestion, answer: stored.answer, date: stored.questionDate }, ...stored.history.slice(0, 13)]
+                    : stored.history;
                 initial = {
                     currentQuestion: getQuestionForDate(today),
                     answer: '',
@@ -77,7 +76,7 @@ function createAnchorStore() {
     const { subscribe, set, update } = writable<AnchorState>(initial);
 
     function persist(state: AnchorState) {
-        if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        writeStorage(STORAGE_KEY, state);
         return state;
     }
 
@@ -107,7 +106,7 @@ function createAnchorStore() {
                 history: []
             };
             set(fresh);
-            if (browser) localStorage.removeItem(STORAGE_KEY);
+            removeStorage(STORAGE_KEY);
         }
     };
 }

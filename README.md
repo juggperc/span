@@ -18,7 +18,7 @@ A mindful dating application focused on swiping intentionality and algorithmic t
 ### 2. **Admin Panel**
 
 - **Route**: `/admin`
-- **Secret**: `span_admin_secret_key_2026`
+- **Secret**: Configure `PRIVATE_ADMIN_SECRET` in your environment.
 - **Features**:
   - **Seed Users**: Generate 5 mock profiles instantly.
   - **Flush**: Reset all data.
@@ -77,7 +77,7 @@ The easiest way to build and deploy is via Vercel.
 
 1. Push code to GitHub.
 2. Import project into Vercel.
-3. Add Environment Variables (`PUBLIC_APPWRITE...`, `PUBLIC_ADMIN_SECRET`).
+3. Add Environment Variables (`PUBLIC_APPWRITE...`, `PRIVATE_ADMIN_SECRET`).
 4. Deploy.
 
 ### Appwrite Cloud

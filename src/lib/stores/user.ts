@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
-import { account } from '$lib/appwrite';
+import { account, appwriteConfigured } from '$lib/appwrite';
+import { log, warn } from '$lib/logger';
 import type { Models } from 'appwrite';
 
 export const user = writable<Models.User<Models.Preferences> | null>(null);
@@ -8,22 +9,27 @@ export const isAuthenticated = derived(user, ($user) => $user !== null);
 
 export async function initUser() {
     isLoading.set(true);
-    console.log("[initUser] Starting auth check...");
+    if (!appwriteConfigured) {
+        user.set(null);
+        isLoading.set(false);
+        return;
+    }
+    log('[initUser] Starting auth check...');
     try {
         // Race against a timeout to prevent infinite loading
         const timeout = new Promise((_, reject) => 
             setTimeout(() => reject(new Error("Auth timeout")), 5000)
         );
         
-        console.log("[initUser] Racing account.get() vs timeout...");
+        log('[initUser] Racing account.get() vs timeout...');
         const u = await Promise.race([account.get(), timeout]);
-        console.log("[initUser] Auth success:", u);
+        log('[initUser] Auth success:', u);
         user.set(u as Models.User<Models.Preferences>);
     } catch (e: any) {
-        console.warn("[initUser] Auth check failed or timed out:", e.message || e);
+        warn('[initUser] Auth check failed or timed out:', e.message || e);
         user.set(null);
     } finally {
-        console.log("[initUser] Setting isLoading = false");
+        log('[initUser] Setting isLoading = false');
         isLoading.set(false);
     }
 }

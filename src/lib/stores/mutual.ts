@@ -1,9 +1,8 @@
-import { writable, get } from 'svelte/store';
-import { browser } from '$app/environment';
+import { writable } from 'svelte/store';
 import type { Profile } from '$lib/stores/matches';
 import { getUserId } from '$lib/stores/user';
-import { createMatch, getUserMatches, checkMutualMatch, revealMatch, getProfiles } from '$lib/appwrite-db';
-import type { ProfileDoc } from '$lib/appwrite-db';
+import { createMatch, getUserMatches, checkMutualMatch, revealMatch } from '$lib/appwrite-db';
+import { readStorage, writeStorage, removeStorage } from '$lib/storage';
 
 /**
  * Tracks profiles the user has "liked" and mutual matches.
@@ -20,13 +19,13 @@ export interface MatchRecord {
 }
 
 function createMutualStore() {
-    const stored = browser ? localStorage.getItem('span_mutual') : null;
-    const initial: MatchRecord[] = stored ? JSON.parse(stored) : [];
+    const stored = readStorage<MatchRecord[]>('span_mutual');
+    const initial: MatchRecord[] = stored ?? [];
 
     const { subscribe, set, update } = writable<MatchRecord[]>(initial);
 
     function persist(records: MatchRecord[]) {
-        if (browser) localStorage.setItem('span_mutual', JSON.stringify(records));
+        writeStorage('span_mutual', records);
         return records;
     }
 
@@ -131,7 +130,7 @@ function createMutualStore() {
 
         reset: () => {
             set([]);
-            if (browser) localStorage.removeItem('span_mutual');
+            removeStorage('span_mutual');
         }
     };
 }

@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
-import { browser } from '$app/environment';
 import { getUserId } from '$lib/stores/user';
 import { createJournalEntry, getUserJournalEntries } from '$lib/appwrite-db';
+import { readStorage, writeStorage, removeStorage } from '$lib/storage';
 
 /**
  * Swipe Journal — daily reflection entries.
@@ -19,13 +19,13 @@ export interface JournalEntry {
 const STORAGE_KEY = 'span_journal';
 
 function createJournalStore() {
-    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
-    const initial: JournalEntry[] = stored ? JSON.parse(stored) : [];
+    const stored = readStorage<JournalEntry[]>(STORAGE_KEY);
+    const initial: JournalEntry[] = stored ?? [];
 
     const { subscribe, set, update } = writable<JournalEntry[]>(initial);
 
     function persist(entries: JournalEntry[]) {
-        if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+        writeStorage(STORAGE_KEY, entries);
         return entries;
     }
 
@@ -84,7 +84,7 @@ function createJournalStore() {
 
         reset: () => {
             set([]);
-            if (browser) localStorage.removeItem(STORAGE_KEY);
+            removeStorage(STORAGE_KEY);
         }
     };
 }

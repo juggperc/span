@@ -19,7 +19,8 @@
   import { user } from "$lib/stores/user";
   import { upsertProfile } from "$lib/appwrite-db";
   import { goto } from "$app/navigation"; // Kept for type safety, but unused in runtime fallback
-  import { browser } from "$app/environment";
+  import { writeStorage } from "$lib/storage";
+  import { log, error } from "$lib/logger";
 
   let step = 0;
   let saving = false;
@@ -137,15 +138,15 @@
         gender: (gender || "non-binary") as any,
         lookingFor: lookingFor.length ? lookingFor : ["everyone"],
       });
-      console.log("Profile saved successfully");
+      log("Profile saved successfully");
 
       // Mark onboarding complete
-      if (browser) localStorage.setItem("span_onboarded", "true");
+      writeStorage("span_onboarded", true);
 
       // Force navigation using window.location to avoid goto() reference errors
       window.location.href = "/";
     } catch (e: any) {
-      console.error("Onboarding save failed:", e.message || e);
+      error("Onboarding save failed:", e.message || e);
 
       // Alert the user so they know WHY it failed
       alert(

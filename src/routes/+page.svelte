@@ -26,6 +26,7 @@
   import { user } from "$lib/stores/user";
   import { getUserProfile } from "$lib/appwrite-db";
   import { goto } from "$app/navigation";
+  import { log, error } from "$lib/logger";
 
   // User preferences (defaults until loaded)
   let userPrefs: UserPreferences = {
@@ -92,7 +93,7 @@
       try {
         const myProfile = await getUserProfile($user.$id);
         if (!myProfile) {
-          console.log("No profile found, redirecting to onboarding...");
+          log("No profile found, redirecting to onboarding...");
           window.location.href = "/onboarding";
           return;
         }
@@ -113,7 +114,7 @@
           };
         }
       } catch (e) {
-        console.error("Failed to load user profile", e);
+        error("Failed to load user profile", e);
       }
 
       // 2. Load candidates

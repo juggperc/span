@@ -11,9 +11,9 @@
     upsertProfile,
     uploadProfileImage,
   } from "$lib/appwrite-db";
-  import type { ProfileDoc } from "$lib/appwrite-db";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { error } from "$lib/logger";
 
   let editing = false;
   let loading = true;
@@ -103,7 +103,7 @@
       try {
         imageUrl = await uploadProfileImage(newPhotoFile);
       } catch (e) {
-        console.error("Profile image upload failed:", e);
+        error("Profile image upload failed:", e);
       }
     }
 
